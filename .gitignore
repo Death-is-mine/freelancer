@@ -36,6 +36,31 @@ yarn-error.log*
 # vercel
 .vercel
 
+# playright MCP artifacts
+.playwright-mcp/
+
+# page snapshots
+*.yml
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# reports & screenshots
+playwright-report/
+test-results/
+lighthouse-reports/
+*.png
+*.md
+
+# editor configs
+.codex/
+.cursor/
+.gemini/
+.vscode/
+.zed/
+config/
+.mcp.json
+
+# e2e tests
+e2e/
