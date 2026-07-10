@@ -5,7 +5,14 @@ const requests = new Map<string, { count: number; reset: number }>()
 
 export function resetRateLimit() { requests.clear() }
 
-export function rateLimit(key: string, max = 10, windowMs = 60_000) {
+export function getClientKey(request: Request): string {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || request.headers.get("x-real-ip")
+    || "unknown"
+}
+
+export function rateLimit(route: string, request: Request, max = 10, windowMs = 60_000) {
+  const key = `${route}:${getClientKey(request)}`
   const now = Date.now()
   const entry = requests.get(key)
   if (!entry || now > entry.reset) {

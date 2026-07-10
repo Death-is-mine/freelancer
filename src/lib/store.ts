@@ -194,3 +194,104 @@ export function getProjectByLeadEmail(email: string): Project | undefined {
 export function getProjectsByClient(clientName: string): Project[] {
   return getProjects().filter((p) => p.client.toLowerCase() === clientName.toLowerCase())
 }
+
+export interface Share {
+  id: string; projectId: string; token: string; enabled: boolean; createdAt: string; expiresAt: string | null
+}
+
+export function addShare(projectId: string, expiresAt?: string): Share | null {
+  if (!getProjects().find((p) => p.id === projectId)) return null
+  const share: Share = {
+    id: crypto.randomUUID().slice(0, 8),
+    projectId,
+    token: crypto.randomUUID().slice(0, 12),
+    enabled: true,
+    createdAt: new Date().toISOString(),
+    expiresAt: expiresAt || null,
+  }
+  const shares = load<Share[]>("fos_shares", [])
+  shares.unshift(share)
+  save("fos_shares", shares)
+  addActivity(projectId, "share", `Share link created`)
+  return share
+}
+
+export function getShareByToken(token: string): { share: Share; project: Project } | null {
+  const shares = load<Share[]>("fos_shares", [])
+  const share = shares.find((s) => s.token === token && s.enabled)
+  if (!share) return null
+  if (share.expiresAt && new Date(share.expiresAt) < new Date()) return null
+  const project = getProjects().find((p) => p.id === share.projectId)
+  if (!project) return null
+  return { share, project }
+}
+
+export function revokeShare(shareId: string) {
+  const shares = load<Share[]>("fos_shares", [])
+  const share = shares.find((s) => s.id === shareId)
+  if (share) { share.enabled = false; save("fos_shares", shares) }
+}
+
+export function getProjectShares(projectId: string): Share[] {
+  return load<Share[]>("fos_shares", []).filter((s) => s.projectId === projectId)
+}
+
+export function getShares(): Share[] {
+  return load<Share[]>("fos_shares", [])
+}
+
+export type RuleTrigger = "lead.created" | "lead.converted" | "project.status_changed" | "invoice.generated" | "invoice.overdue"
+export type RuleAction = "notify" | "create_task" | "update_status"
+
+export interface Rule {
+  id: string; name: string; trigger: RuleTrigger; action: RuleAction; config: string; enabled: boolean
+}
+
+export function getRules(): Rule[] {
+  return load<Rule[]>("fos_rules", DEFAULT_RULES)
+}
+
+export function addRule(rule: Rule) {
+  const rules = getRules()
+  rules.unshift(rule)
+  save("fos_rules", rules)
+}
+
+export function updateRule(id: string, upd: Partial<Rule>) {
+  const rules = getRules()
+  const idx = rules.findIndex((r) => r.id === id)
+  if (idx !== -1) { Object.assign(rules[idx], upd); save("fos_rules", rules) }
+}
+
+export function deleteRule(id: string) {
+  save("fos_rules", getRules().filter((r) => r.id !== id))
+}
+
+export function evaluateRules(trigger: RuleTrigger, context: Record<string, string>) {
+  const rules = getRules().filter((r) => r.enabled && r.trigger === trigger)
+  for (const rule of rules) {
+    if (rule.action === "notify") {
+      const msg = rule.config.replace(/\{(\w+)\}/g, (_, k) => context[k] || "")
+      const notifKey = `fos_notification_${Date.now()}`
+      save(notifKey, { msg, time: new Date().toISOString(), read: false })
+      setTimeout(() => { try { localStorage.removeItem(notifKey) } catch {} }, 86400000)
+    }
+    if (rule.action === "create_task") {
+      const title = rule.config.replace(/\{(\w+)\}/g, (_, k) => context[k] || "")
+      const tasks = load<Record<string, unknown>[]>("fos_tasks", [])
+      tasks.unshift({ id: crypto.randomUUID().slice(0, 6), title, done: false, projectId: context.projectId || "", date: "Today", priority: "Normal" })
+      save("fos_tasks", tasks)
+    }
+    if (rule.action === "update_status" && context.projectId) {
+      const projects = getProjects()
+      const p = projects.find((x) => x.id === context.projectId)
+      if (p) { p.amountStatus = rule.config; save("fos_projects", projects); addActivity(context.projectId, "update", `Status auto-updated to ${rule.config}`) }
+    }
+  }
+}
+
+const DEFAULT_RULES: Rule[] = [
+  { id: "r1", name: "Notify on new lead", trigger: "lead.created", action: "notify", config: "New lead: {name} from {company}", enabled: true },
+  { id: "r2", name: "Flag overdue invoices", trigger: "invoice.overdue", action: "notify", config: "Invoice {number} is overdue for {client}", enabled: true },
+  { id: "r3", name: "Auto-archive paid projects", trigger: "project.status_changed", action: "update_status", config: "Paid", enabled: false },
+]

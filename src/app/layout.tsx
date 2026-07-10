@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+/* eslint-disable @next/next/google-font-display, @next/next/no-page-custom-font */
 import { Inter } from "next/font/google"
 import dynamic from "next/dynamic"
 import "./globals.css"

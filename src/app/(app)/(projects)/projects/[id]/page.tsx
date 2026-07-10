@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { getProjects, updateProject, deleteProject, getProjectActivity, getProjectFiles, addProjectFile, removeProjectFile, generateInvoice, generateAgreement, type ActivityEntry, type ProjectFile } from "@/lib/store"
+import { getProjects, updateProject, deleteProject, getProjectActivity, getProjectFiles, addProjectFile, removeProjectFile, generateInvoice, generateAgreement, addShare, getProjectShares, evaluateRules, type ActivityEntry, type ProjectFile } from "@/lib/store"
 
 interface ProjectTask { id: string; title?: string; text?: string; done: boolean; projectId?: string }
 
@@ -154,19 +154,19 @@ export default function ProjectDetailPage() {
     setProjectTasks(next.filter((t) => t.projectId === id))
   }
 
-  const addTask = useCallback(() => {
+  const addTask = () => {
     if (!newTaskText.trim()) return
     syncAll((all) => [{ id: crypto.randomUUID().slice(0, 6), title: newTaskText.trim(), done: false, projectId: id, project: project?.client || "General", priority: "Normal", date: "Today" }, ...all])
     setNewTaskText("")
-  }, [newTaskText, id])
+  }
 
-  const toggleTask = useCallback((taskId: string) => {
+  const toggleTask = (taskId: string) => {
     syncAll((all) => all.map((t) => t.id === taskId ? { ...t, done: !t.done } : t))
-  }, [])
+  }
 
-  const removeTask = useCallback((taskId: string) => {
+  const removeTask = (taskId: string) => {
     syncAll((all) => all.filter((t) => t.id !== taskId))
-  }, [])
+  }
 
   if (!project) {
     return (
@@ -257,7 +257,7 @@ export default function ProjectDetailPage() {
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/5">
           <p className="text-label-md text-on-surface-variant">Status</p>
-          <select value={project.amountStatus} onChange={(e) => { updateProject(project.id, { amountStatus: e.target.value }); setToast({ show: true, msg: `Status: ${e.target.value}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} aria-label="Payment status" className={`mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-0 outline-none ${project.amountStatus === "Paid" ? "bg-secondary-container text-on-secondary-container" : project.amountStatus === "Overdue" ? "bg-error-container text-on-error-container" : "bg-surface-container-high text-on-surface-variant"}`}>
+          <select value={project.amountStatus} onChange={(e) => { const old = project.amountStatus; updateProject(project.id, { amountStatus: e.target.value }); if (old !== e.target.value) evaluateRules("project.status_changed", { projectId: project.id, client: project.client, status: e.target.value, old }); setToast({ show: true, msg: `Status: ${e.target.value}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} aria-label="Payment status" className={`mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border-0 outline-none ${project.amountStatus === "Paid" ? "bg-secondary-container text-on-secondary-container" : project.amountStatus === "Overdue" ? "bg-error-container text-on-error-container" : "bg-surface-container-high text-on-surface-variant"}`}>
             <option value="Pending">Pending</option>
             <option value="Paid">Paid</option>
             <option value="Overdue">Overdue</option>
@@ -277,6 +277,7 @@ export default function ProjectDetailPage() {
             <div className="flex justify-between"><span className="text-body-md text-on-surface-variant">Email</span><span className="text-body-md font-semibold text-on-surface">{project.leadEmail || "—"}</span></div>
             <div className="flex justify-between"><span className="text-body-md text-on-surface-variant">Invoice</span><span className="text-body-md font-semibold text-on-surface">{project.invoiceNum}</span></div>
             <div className="flex justify-between"><span className="text-body-md text-on-surface-variant">Agreement</span><span className="text-body-md font-semibold text-on-surface">{project.agreementNum}</span></div>
+            <div className="flex justify-between"><span className="text-body-md text-on-surface-variant">Shares</span><span className="text-body-md font-semibold text-on-surface">{getProjectShares(project.id).filter((s) => s.enabled).length} active</span></div>
           </div>
         </div>
 
@@ -318,13 +319,17 @@ export default function ProjectDetailPage() {
             Actions
           </h3>
           <div className="space-y-2">
-            <button onClick={() => { generateInvoice(project.id); setToast({ show: true, msg: `Invoice ${project.invoiceNum === "—" ? "generated" : "regenerated"}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
+            <button onClick={() => { generateInvoice(project.id); evaluateRules("invoice.generated", { projectId: project.id, client: project.client, number: project.invoiceNum }); setToast({ show: true, msg: `Invoice ${project.invoiceNum === "—" ? "generated" : "regenerated"}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">receipt</span>
               <div><p className="text-body-md font-semibold text-on-surface">Generate Invoice</p><p className="text-label-sm text-on-surface-variant/80">Create an invoice for this project</p></div>
             </button>
             <button onClick={() => { generateAgreement(project.id); setToast({ show: true, msg: `Agreement ${project.agreementNum === "—" ? "generated" : "regenerated"}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">contract</span>
               <div><p className="text-body-md font-semibold text-on-surface">Generate Agreement</p><p className="text-label-sm text-on-surface-variant/80">Create a service agreement</p></div>
+            </button>
+            <button onClick={() => { const share = addShare(project.id); if (share) { const url = `${window.location.origin}/share/${share.token}`; navigator.clipboard?.writeText(url); setToast({ show: true, msg: `Share link copied: ${url}` }); setTimeout(() => setToast({ show: false, msg: "" }), 3000) } }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
+              <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">share</span>
+              <div><p className="text-body-md font-semibold text-on-surface">Share Project</p><p className="text-label-sm text-on-surface-variant/80">Create a public link to share with client</p></div>
             </button>
             <button onClick={() => router.push("/tasks")} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">open_in_new</span>

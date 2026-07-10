@@ -26,8 +26,8 @@ async function driveRequest(path: string, accessToken: string, options: RequestI
   return res.json()
 }
 
-export async function POST() {
-  if (!rateLimit("setup", 5, 60000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+export async function POST(request: Request) {
+  if (!rateLimit("setup", request, 5, 60000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   const accessToken = await getServerAccessToken()
   if (!accessToken) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 

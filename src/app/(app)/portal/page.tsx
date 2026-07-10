@@ -1,13 +1,42 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getShares, addShare, revokeShare, getProjects, type Share } from "@/lib/store"
 
 export default function PortalPage() {
-  const [publicAccess, setPublicAccess] = useState(true)
-  const [clientUploads, setClientUploads] = useState(false)
+  const [shares, setShares] = useState<Share[]>([])
+  const [toast, setToast] = useState("")
+
+  function refresh() { setShares(getShares()) }
+  useEffect(refresh, [])
+
+  function handleCreate() {
+    const projects = getProjects()
+    if (projects.length === 0) { setToast("Create a project first"); return }
+    const share = addShare(projects[0].id)
+    if (!share) return
+    const url = `${window.location.origin}/share/${share.token}`
+    navigator.clipboard?.writeText(url)
+    setToast(`Link copied: ${url}`)
+    refresh()
+  }
+
+  function handleRevoke(id: string) {
+    revokeShare(id)
+    setToast("Share link revoked")
+    refresh()
+  }
+
+  const projectNames = Object.fromEntries(getProjects().map((p) => [p.id, p.client]))
 
   return (
     <div>
+      {toast && (
+        <div className="fixed bottom-6 right-6 bg-surface-container-high text-on-surface px-5 py-3 rounded-xl shadow-xl z-50 animate-fade-in text-body-md font-medium" role="alert">
+          {toast}
+          <button onClick={() => setToast("")} className="ml-4 text-on-surface-variant cursor-pointer" aria-label="Dismiss">×</button>
+        </div>
+      )}
       <nav className="flex items-center gap-2 text-on-surface-variant mb-6">
         <span className="text-label-md">Workspace</span>
         <span className="text-on-surface-variant/30">/</span>
@@ -18,49 +47,45 @@ export default function PortalPage() {
           <h2 className="text-headline-lg tracking-tight text-on-surface">Client Portal</h2>
           <p className="text-body-md text-on-surface-variant mt-1">Share files, invoices, and proposals with clients.</p>
         </div>
-        <button onClick={() => { const link = `${window.location.origin}/portal/share/${crypto.randomUUID().slice(0, 8)}`; navigator.clipboard?.writeText(link); alert(`Share link copied:\n${link}`) }} className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-semibold text-body-md shadow-lg shadow-primary/10">
+        <button onClick={handleCreate} className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-semibold text-body-md shadow-lg shadow-primary/10 cursor-pointer">
           Share New Link
         </button>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="col-span-2 bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/5">
           <h3 className="text-title-lg text-on-surface mb-4">Recent Shares</h3>
-          {[
-            { client: "Nexus Systems", item: "Q3 Proposal", type: "Proposal", date: "2 hours ago" },
-            { client: "Stellar Media", item: "Brand Guidelines", type: "File", date: "Yesterday" },
-            { client: "Arcane Labs", item: "Invoice INV-003", type: "Invoice", date: "3 days ago" },
-          ].map((share) => (
-            <div key={share.client} className="flex items-center justify-between py-3 border-b border-outline-variant/5 last:border-0">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">
-                  {share.type === "Proposal" ? "description" : share.type === "File" ? "folder" : "receipt"}
-                </span>
-                <div>
-                  <p className="text-body-md font-medium text-on-surface">{share.item}</p>
-                  <p className="text-label-sm text-on-surface-variant/80">{share.client} &bull; {share.date}</p>
+          {shares.length === 0 ? (
+            <p className="text-body-md text-on-surface-variant/60 py-8 text-center">No shares yet. Click &quot;Share New Link&quot; to create one.</p>
+          ) : (
+            shares.map((s) => (
+              <div key={s.id} className="flex items-center justify-between py-3 border-b border-outline-variant/5 last:border-0">
+                <div className="flex items-center gap-3">
+                  <span className={`material-symbols-outlined ${s.enabled ? "text-primary" : "text-on-surface-variant/40"}`} aria-hidden="true">link</span>
+                  <div>
+                    <p className="text-body-md font-medium text-on-surface">{projectNames[s.projectId] || "Unknown"} <span className={`text-label-sm ${s.enabled ? "text-success" : "text-on-surface-variant/60"}`}>{s.enabled ? "Active" : "Revoked"}</span></p>
+                    <p className="text-label-sm text-on-surface-variant/80">{new Date(s.createdAt).toLocaleDateString()} {s.expiresAt ? `· Expires ${new Date(s.expiresAt).toLocaleDateString()}` : ""}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s.enabled && (
+                    <button onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/share/${s.token}`); setToast("Link copied") }} className="text-label-sm text-primary cursor-pointer hover:underline" aria-label="Copy share link">
+                      Copy
+                    </button>
+                  )}
+                  {s.enabled && (
+                    <button onClick={() => handleRevoke(s.id)} className="text-label-sm text-error cursor-pointer hover:underline" aria-label="Revoke share link">
+                      Revoke
+                    </button>
+                  )}
                 </div>
               </div>
-              <button onClick={() => alert(`Opening ${share.item}`)} className="text-label-sm text-primary cursor-pointer hover:underline">View</button>
-            </div>
-          ))}
+            ))
+          )}
         </div>
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/5">
           <h3 className="text-title-lg text-on-surface mb-4">Portal Settings</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-body-md text-on-surface">Public Access</span>
-              <button aria-label="Toggle public access" onClick={() => setPublicAccess(!publicAccess)} className={`w-10 h-6 rounded-full relative transition-colors ${publicAccess ? "bg-primary" : "bg-surface-container-high"}`}>
-                <div className={`w-4 h-4 rounded-full bg-white absolute top-1 shadow-sm transition-transform ${publicAccess ? "right-1" : "left-1"}`}></div>
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-body-md text-on-surface">Client Uploads</span>
-              <button aria-label="Toggle client uploads" onClick={() => setClientUploads(!clientUploads)} className={`w-10 h-6 rounded-full relative transition-colors ${clientUploads ? "bg-primary" : "bg-surface-container-high"}`}>
-                <div className={`w-4 h-4 rounded-full bg-white absolute top-1 shadow-sm transition-transform ${clientUploads ? "right-1" : "left-1"}`}></div>
-              </button>
-            </div>
-            <p className="text-label-sm text-on-surface-variant/80 pt-4 border-t border-outline-variant/5">Clients can view shared files and proposals without signing in.</p>
-          </div>
+          <p className="text-label-sm text-on-surface-variant/80">Shares are accessible at <code className="text-primary">/share/[token]</code> without sign-in. Revoke a link to disable it immediately.</p>
+          <p className="text-label-sm text-on-surface-variant/80 pt-4 border-t border-outline-variant/5 mt-4">Share links are created from the most recent project. To share a specific project, use the Share button on its detail page.</p>
         </div>
       </div>
     </div>

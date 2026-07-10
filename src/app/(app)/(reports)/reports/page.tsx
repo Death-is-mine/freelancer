@@ -1,15 +1,50 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getProjects } from "@/lib/store"
 
-const reportData = {
-  "Revenue Report": { icon: "bar_chart", data: [{ month: "Jan", rev: 42000 }, { month: "Feb", rev: 38500 }, { month: "Mar", rev: 51000 }, { month: "Apr", rev: 47200 }, { month: "May", rev: 53800 }, { month: "Jun", rev: 49200 }] },
-  "Client Report": { icon: "group", data: [{ month: "Jan", total: 18 }, { month: "Feb", total: 22 }, { month: "Mar", total: 27 }, { month: "Apr", total: 31 }, { month: "May", total: 36 }, { month: "Jun", total: 42 }] },
-  "Project Report": { icon: "work", data: [{ month: "Jan", completed: 3 }, { month: "Feb", completed: 5 }, { month: "Mar", completed: 7 }, { month: "Apr", completed: 4 }, { month: "May", completed: 8 }, { month: "Jun", completed: 6 }] },
+interface ReportRow { month: string; value: number }
+
+type ReportData = Record<string, { icon: string; data: ReportRow[] }>
+
+const emptyReports: ReportData = {
+  "Revenue Report": { icon: "bar_chart", data: [] },
+  "Client Report": { icon: "group", data: [] },
+  "Project Report": { icon: "work", data: [] },
+}
+
+function buildReports(): ReportData {
+  const projects = getProjects()
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+  const revByMonth = new Array(12).fill(0)
+  const clientsByMonth = new Array(12).fill(0)
+  const projByMonth = new Array(12).fill(0)
+  const seen = new Set<string>()
+
+  projects.forEach(p => {
+    const m = new Date().getMonth()
+    revByMonth[m] += Number(p.amount.replace(/[^0-9.]/g, "")) || 0
+    if (!seen.has(p.client)) { seen.add(p.client); clientsByMonth[m]++ }
+    projByMonth[m]++
+  })
+
+  return {
+    "Revenue Report": { icon: "bar_chart", data: months.map((month, i) => ({ month, value: revByMonth[i] })).filter(r => r.value > 0) },
+    "Client Report": { icon: "group", data: months.map((month, i) => ({ month, value: clientsByMonth[i] })).filter(r => r.value > 0) },
+    "Project Report": { icon: "work", data: months.map((month, i) => ({ month, value: projByMonth[i] })).filter(r => r.value > 0) },
+  }
+}
+
+function maxValue(data: ReportRow[]) {
+  return data.reduce((m, r) => Math.max(m, r.value), 0) || 1
 }
 
 export default function ReportsPage() {
+  const [reportData, setReportData] = useState<ReportData>(emptyReports)
   const [selected, setSelected] = useState<string | null>(null)
+
+  useEffect(() => { setReportData(buildReports()) }, [])
 
   return (
     <>
@@ -28,17 +63,21 @@ export default function ReportsPage() {
           </button>
           <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/5">
             <h3 className="text-title-lg text-on-surface mb-4">{selected}</h3>
-            <div className="space-y-3">
-              {reportData[selected as keyof typeof reportData].data.map((d: Record<string, string | number>, i: number) => (
-                <div key={i} className="flex items-center gap-4">
-                  <span className="text-label-md text-on-surface-variant w-16">{String(d.month)}</span>
-                  <div className="flex-1 h-6 bg-surface-container-high rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.min(100, (Number(Object.values(d)[1]) / 60) * 100)}%` }}></div>
+            {reportData[selected]?.data.length === 0 ? (
+              <p className="text-body-md text-on-surface-variant">No data yet. Create projects to see reports.</p>
+            ) : (
+              <div className="space-y-3">
+                {reportData[selected].data.map((d, i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <span className="text-label-md text-on-surface-variant w-16">{d.month}</span>
+                    <div className="flex-1 h-6 bg-surface-container-high rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(d.value / maxValue(reportData[selected].data)) * 100}%` }}></div>
+                    </div>
+                    <span className="text-label-md font-semibold text-on-surface w-20 text-right">{d.value.toLocaleString()}</span>
                   </div>
-                  <span className="text-label-md font-semibold text-on-surface w-20 text-right">{String(Object.values(d)[1])}</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -48,9 +87,9 @@ export default function ReportsPage() {
               <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">{r.icon}</span>
               <h3 className="text-title-lg text-on-surface mt-4 mb-1">{title}</h3>
               <p className="text-body-md text-on-surface-variant">
-                {title === "Revenue Report" ? "Monthly, quarterly, and annual revenue breakdowns" :
-                 title === "Client Report" ? "Client acquisition, retention, and LTV analysis" :
-                 "Project completion rates, budget tracking, and profitability"}
+                {title === "Revenue Report" ? "Monthly revenue from projects" :
+                 title === "Client Report" ? "Unique clients per month" :
+                 "Projects created per month"}
               </p>
             </button>
           ))}

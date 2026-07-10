@@ -4,16 +4,16 @@ import { z } from "zod"
 
 describe("rateLimit", () => {
   beforeEach(() => resetRateLimit())
+  const mockReq = { headers: new Map(Object.entries({ "x-forwarded-for": "127.0.0.1" })) } as unknown as Request
 
   it("allows first request", () => {
-    expect(rateLimit("test1", 2, 1000)).toBe(true)
+    expect(rateLimit("test1", mockReq, 2, 1000)).toBe(true)
   })
 
   it("blocks after max", () => {
-    const key = "test2"
-    expect(rateLimit(key, 2, 1000)).toBe(true)
-    expect(rateLimit(key, 2, 1000)).toBe(true)
-    expect(rateLimit(key, 2, 1000)).toBe(false)
+    expect(rateLimit("test2", mockReq, 2, 1000)).toBe(true)
+    expect(rateLimit("test2", mockReq, 2, 1000)).toBe(true)
+    expect(rateLimit("test2", mockReq, 2, 1000)).toBe(false)
   })
 })
 

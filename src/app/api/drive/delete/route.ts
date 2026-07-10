@@ -3,7 +3,7 @@ import { rateLimit } from "@/lib/validate"
 import { NextResponse } from "next/server"
 
 export async function DELETE(request: Request) {
-  if (!rateLimit("drive-delete", 30, 60000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+  if (!rateLimit("drive-delete", request, 30, 60000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   const token = await getServerAccessToken()
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

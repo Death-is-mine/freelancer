@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getLeads as store, addLead as storeAdd, deleteLead as storeDelete, updateLead as storeUpdate, convertLeadToProject, type Lead } from "@/lib/store"
+import { getLeads as store, addLead as storeAdd, deleteLead as storeDelete, updateLead as storeUpdate, convertLeadToProject, evaluateRules, type Lead } from "@/lib/store"
 
 export default function LeadsPage() {
   const router = useRouter()
@@ -28,6 +28,7 @@ export default function LeadsPage() {
     const proj = convertLeadToProject(leadId)
     if (proj) {
       setLeads([...store()])
+      evaluateRules("lead.converted", { name: proj.client, projectId: proj.id, company: proj.requirement })
       setToast({ show: true, msg: `Converted to project for ${proj.client}` })
       setTimeout(() => router.push(`/projects/${proj.id}`), 1200)
     }
@@ -166,6 +167,7 @@ export default function LeadsPage() {
                 return
               }
               storeAdd({ id: crypto.randomUUID().slice(0, 8), ...form, status: "New", date: new Date().toLocaleDateString() })
+              evaluateRules("lead.created", { name: form.name, company: form.company, email: form.email })
               setLeads([...store()])
               setShowForm(false)
               setForm({ name: "", email: "", company: "", source: "", value: "" })

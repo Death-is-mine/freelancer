@@ -1,8 +1,8 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { getProjects, getLeads } from "@/lib/store"
-import { useEffect, useState } from "react"
+import { getProjects, getLeads, evaluateRules, type Project, type Lead } from "@/lib/store"
+import { useEffect, useState, useRef } from "react"
 import { useSession } from "next-auth/react"
 
 function useTime() {
@@ -58,15 +58,49 @@ function formatDeadlineLabel(d: string) {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 }
 
+interface CalendarEvent {
+  id: string; summary: string; start: string; end: string; link: string
+}
+
+function formatEventTime(iso: string) {
+  const d = new Date(iso)
+  if (iso.length <= 10) return iso
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+}
+
 export function DashboardView() {
   const router = useRouter()
   const { data: session } = useSession()
   const now = useTime()
+  const [projects, setProjects] = useState<Project[]>([])
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [calEvents, setCalEvents] = useState<CalendarEvent[]>([])
+  const [calError, setCalError] = useState(false)
 
+  useEffect(() => {
+    setProjects(getProjects())
+    setLeads(getLeads())
+    setLoaded(true)
+  }, [])
+
+  const pjs = loaded ? projects : []
+  const lds = loaded ? leads : []
+
+  useEffect(() => {
+    fetch("/api/calendar/events").then((r) => r.ok ? r.json() : null).then((d) => { if (d?.events) setCalEvents(d.events); else setCalError(true) }).catch(() => setCalError(true))
+  }, [])
   const userName = session?.user?.name || "Freelancer"
 
-  const pjs = getProjects()
-  const lds = getLeads()
+  const checkRef = useRef(false)
+  useEffect(() => {
+    if (checkRef.current) return
+    checkRef.current = true
+    const p = getProjects()
+    const overdue = p.filter((x) => x.dueDate !== "—" && x.amountStatus === "Pending" && new Date(x.dueDate) < new Date())
+    overdue.forEach((x) => evaluateRules("invoice.overdue", { projectId: x.id, client: x.client, number: x.invoiceNum }))
+  }, [])
+
   const totalOutstanding = pjs
     .filter((p) => p.amountStatus === "Pending" || p.amountStatus === "Overdue")
     .reduce((s, p) => s + (Number(p.amount.replace(/[^0-9.]/g, "")) || 0), 0)
@@ -81,6 +115,8 @@ export function DashboardView() {
     ...pjs.slice(0, 5).map((p) => ({ type: "project" as const, text: `New project: ${p.requirement}`, client: p.client })),
     ...lds.filter((l) => l.status === "Converted").slice(0, 3).map((l) => ({ type: "lead" as const, text: `Lead converted: ${l.name}`, client: l.company })),
   ]
+
+  if (!loaded) return null
 
   return (
     <>
@@ -166,6 +202,29 @@ export function DashboardView() {
                   {formatDeadlineLabel(p.dueDate)}
                 </span>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {calEvents.length > 0 && (
+        <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/5 shadow-sm mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-title-lg text-on-surface">Upcoming Calendar Events</h3>
+            {!calError && <span className="text-label-sm text-on-surface-variant/60">Next 7 days</span>}
+          </div>
+          <div className="space-y-2">
+            {calEvents.slice(0, 5).map((e) => (
+              <a key={e.id} href={e.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-3 rounded-lg hover:bg-surface-container-low transition-colors group">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary">
+                  <span className="material-symbols-outlined text-[20px]" aria-hidden="true">event</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-body-md font-medium text-on-surface truncate group-hover:text-primary transition-colors">{e.summary}</p>
+                  <p className="text-label-sm text-on-surface-variant">{formatEventTime(e.start)}{e.end ? ` – ${formatEventTime(e.end)}` : ""}</p>
+                </div>
+                <span className="material-symbols-outlined text-on-surface-variant/40 text-[18px] opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true">open_in_new</span>
+              </a>
             ))}
           </div>
         </div>
