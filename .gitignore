@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# runtime data stores (dev JSON repo)
+.data/
+
 # debug
 npm-debug.log*
 npm-dev*.log*

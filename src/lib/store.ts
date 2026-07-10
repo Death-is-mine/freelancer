@@ -218,12 +218,11 @@ export async function addShare(projectId: string, expiresAt?: string): Promise<S
   }
 }
 
-export async function getShareByToken(token: string): Promise<{ share: Share; project: Project } | null> {
+export async function getShareByToken(token: string): Promise<{ project: { client: string; requirement: string; amount: string; amountStatus: string; dueDate: string; invoiceNum: string; agreementNum: string } } | null> {
   try {
     const res = await fetch(`/api/share/${encodeURIComponent(token)}`)
     if (!res.ok) return null
-    const data = await res.json()
-    return { share: data as Share, project: data.projectSnapshot as unknown as Project }
+    return await res.json()
   } catch {
     return null
   }

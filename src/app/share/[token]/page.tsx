@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { use } from "react"
-import { getShareByToken, type Share, type Project } from "@/lib/store"
+import { getShareByToken } from "@/lib/store"
 
 export default function ShareView({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
-  const [data, setData] = useState<{ share: Share; project: Project } | null | undefined>(undefined)
+  const [project, setProject] = useState<{ client: string; requirement: string; amount: string; amountStatus: string; dueDate: string; invoiceNum: string; agreementNum: string } | null | undefined>(undefined)
 
-  useEffect(() => { getShareByToken(token).then(setData) }, [token])
+  useEffect(() => { getShareByToken(token).then((d) => setProject(d?.project ?? null)) }, [token])
 
-  if (data === undefined) return <div className="flex items-center justify-center min-h-screen"><p>Loading…</p></div>
-  if (!data) return (
+  if (project === undefined) return <div className="flex items-center justify-center min-h-screen"><p>Loading…</p></div>
+  if (!project) return (
     <div className="flex items-center justify-center min-h-screen p-8">
       <div className="text-center max-w-md">
         <span className="material-symbols-outlined text-6xl text-on-surface-variant/30 mb-4" aria-hidden="true">lock</span>
@@ -20,8 +20,6 @@ export default function ShareView({ params }: { params: Promise<{ token: string 
       </div>
     </div>
   )
-
-  const { project } = data
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-outline-variant/10 bg-surface-container-lowest/80 backdrop-blur-xl">
