@@ -14,7 +14,7 @@ export default function ProfileSettingsPage() {
     <div className="max-w-3xl">
       <h2 className="text-headline-lg text-on-surface mb-2">Profile</h2>
       <p className="text-body-md text-on-surface-variant mb-2">Your personal profile synced from Google.</p>
-      <p className="text-label-sm text-on-surface-variant/60 mb-8">To update your name, photo, or email, edit your Google account.</p>
+      <p className="text-label-sm text-on-surface-variant mb-8">To update your name, photo, or email, edit your Google account.</p>
       <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/20 space-y-6">
         <div className="flex items-center gap-6">
           {user?.image ? (
@@ -29,17 +29,17 @@ export default function ProfileSettingsPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-label-md text-on-surface font-semibold block mb-2">First Name</label>
-            <input className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-body-md opacity-60" defaultValue={firstName} readOnly />
+            <label htmlFor="first-name" className="text-label-md text-on-surface font-semibold block mb-2">First Name</label>
+            <input id="first-name" className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-body-md" defaultValue={firstName} readOnly />
           </div>
           <div>
-            <label className="text-label-md text-on-surface font-semibold block mb-2">Last Name</label>
-            <input className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-body-md opacity-60" defaultValue={lastName} readOnly />
+            <label htmlFor="last-name" className="text-label-md text-on-surface font-semibold block mb-2">Last Name</label>
+            <input id="last-name" className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-body-md" defaultValue={lastName} readOnly />
           </div>
         </div>
         <div>
-          <label className="text-label-md text-on-surface font-semibold block mb-2">Email</label>
-          <input className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-body-md opacity-60" defaultValue={user?.email || ""} readOnly />
+          <label htmlFor="email" className="text-label-md text-on-surface font-semibold block mb-2">Email</label>
+          <input id="email" className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-body-md" defaultValue={user?.email || ""} readOnly />
         </div>
       </div>
     </div>

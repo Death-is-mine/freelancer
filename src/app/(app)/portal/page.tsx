@@ -55,15 +55,15 @@ export default function PortalPage() {
         <div className="col-span-2 bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/5">
           <h3 className="text-title-lg text-on-surface mb-4">Recent Shares</h3>
           {shares.length === 0 ? (
-            <p className="text-body-md text-on-surface-variant/60 py-8 text-center">No shares yet. Click &quot;Share New Link&quot; to create one.</p>
+            <p className="text-body-md text-on-surface-variant py-8 text-center">No shares yet. Click &quot;Share New Link&quot; to create one.</p>
           ) : (
             shares.map((s) => (
               <div key={s.id} className="flex items-center justify-between py-3 border-b border-outline-variant/5 last:border-0">
                 <div className="flex items-center gap-3">
                   <span className={`material-symbols-outlined ${s.enabled ? "text-primary" : "text-on-surface-variant/40"}`} aria-hidden="true">link</span>
                   <div>
-                    <p className="text-body-md font-medium text-on-surface">{projectNames[s.projectId] || "Unknown"} <span className={`text-label-sm ${s.enabled ? "text-success" : "text-on-surface-variant/60"}`}>{s.enabled ? "Active" : "Revoked"}</span></p>
-                    <p className="text-label-sm text-on-surface-variant/80">{new Date(s.createdAt).toLocaleDateString()} {s.expiresAt ? `· Expires ${new Date(s.expiresAt).toLocaleDateString()}` : ""}</p>
+                    <p className="text-body-md font-medium text-on-surface">{projectNames[s.projectId] || "Unknown"} <span className={`text-label-sm ${s.enabled ? "text-success" : "text-on-surface-variant"}`}>{s.enabled ? "Active" : "Revoked"}</span></p>
+                    <p className="text-label-sm text-on-surface-variant">{new Date(s.createdAt).toLocaleDateString()} {s.expiresAt ? `· Expires ${new Date(s.expiresAt).toLocaleDateString()}` : ""}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -84,8 +84,8 @@ export default function PortalPage() {
         </div>
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/5">
           <h3 className="text-title-lg text-on-surface mb-4">Portal Settings</h3>
-          <p className="text-label-sm text-on-surface-variant/80">Shares are accessible at <code className="text-primary">/share/[token]</code> without sign-in. Revoke a link to disable it immediately.</p>
-          <p className="text-label-sm text-on-surface-variant/80 pt-4 border-t border-outline-variant/5 mt-4">Share links are created from the most recent project. To share a specific project, use the Share button on its detail page.</p>
+          <p className="text-label-sm text-on-surface-variant">Shares are accessible at <code className="text-primary">/share/[token]</code> without sign-in. Revoke a link to disable it immediately.</p>
+          <p className="text-label-sm text-on-surface-variant pt-4 border-t border-outline-variant/5 mt-4">Share links are created from the most recent project. To share a specific project, use the Share button on its detail page.</p>
         </div>
       </div>
     </div>

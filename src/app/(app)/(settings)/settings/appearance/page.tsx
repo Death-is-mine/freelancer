@@ -75,8 +75,8 @@ export default function AppearanceSettingsPage() {
             const val = mode.toLowerCase() as "light" | "dark" | "system"
             const selected = theme === val
             return (
-              <div key={mode} onClick={() => selectTheme(val)}>
-                <div className={`aspect-video rounded-xl border-2 transition-all overflow-hidden p-3 flex flex-col gap-2 shadow-sm cursor-pointer ${selected ? "bg-white border-primary" : "bg-white border-transparent hover:border-primary"}`}>
+              <label key={mode} className="cursor-pointer">
+                <div className={`aspect-video rounded-xl border-2 transition-all overflow-hidden p-3 flex flex-col gap-2 shadow-sm ${selected ? "bg-white border-primary" : "bg-white border-transparent hover:border-primary"}`}>
                   <div className="h-4 w-1/2 bg-slate-100 rounded"></div>
                   <div className="flex gap-2">
                     <div className="h-10 flex-1 bg-slate-50 rounded border border-slate-100"></div>
@@ -87,7 +87,7 @@ export default function AppearanceSettingsPage() {
                   <span className="text-label-md">{mode}</span>
                   <input className="text-primary focus:ring-primary h-4 w-4" name="theme" type="radio" checked={selected} onChange={() => selectTheme(val)} aria-label={`${mode} mode`} />
                 </div>
-              </div>
+              </label>
             )
           })}
         </div>
@@ -111,14 +111,14 @@ export default function AppearanceSettingsPage() {
         <h3 className="text-title-lg mb-6">Color Presets</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {PRESETS.map((p) => (
-            <div key={p.name} onClick={() => { setPreset(p.name); selectAccent(p.colors[0]) }} className={`p-4 rounded-xl border cursor-pointer ${preset === p.name ? "border-primary bg-secondary-container/50" : "border-outline-variant hover:bg-surface-container"}`}>
+            <button key={p.name} onClick={() => { setPreset(p.name); selectAccent(p.colors[0]) }} className={`text-left p-4 rounded-xl border cursor-pointer ${preset === p.name ? "border-primary bg-secondary-container/50" : "border-outline-variant hover:bg-surface-container"}`} aria-label={`Preset ${p.name}`}>
               <div className="flex gap-1 mb-3">
                 {p.colors.map((c, j) => (
                   <div key={j} className="w-3 h-3 rounded-full" style={{ backgroundColor: c }}></div>
                 ))}
               </div>
               <span className="text-label-md">{p.name}</span>
-            </div>
+            </button>
           ))}
         </div>
       </div>

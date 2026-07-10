@@ -52,7 +52,7 @@ export default function TemplatesSettingsPage() {
                   <button onClick={() => setTemplates((prev) => prev.map((x) => x.name === t.name ? { ...x, active: true } : { ...x, active: false }))} className={`px-3 py-1 rounded-lg text-label-sm font-medium ${t.active ? "bg-primary text-on-primary" : "bg-surface-container-lowest text-on-surface-variant"}`}>
                     {t.active ? "Active" : "Use"}
                   </button>
-                  <button onClick={() => setTemplates((prev) => prev.filter((x) => x.name !== t.name))} className="p-1 rounded hover:bg-surface-container-low text-on-surface-variant">
+                  <button onClick={() => setTemplates((prev) => prev.filter((x) => x.name !== t.name))} aria-label="Delete template" className="p-1 rounded hover:bg-surface-container-low text-on-surface-variant">
                     <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
                   </button>
                 </div>
