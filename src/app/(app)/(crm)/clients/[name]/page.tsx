@@ -2,13 +2,13 @@
 
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { projects } from "@/lib/store"
+import { getProjects } from "@/lib/store"
 
 export default function ClientDetailPage() {
   const { name } = useParams<{ name: string }>()
   const router = useRouter()
   const clientName = decodeURIComponent(name)
-  const clientProjects = projects.filter((p) => p.client.toLowerCase() === clientName.toLowerCase())
+  const clientProjects = getProjects().filter((p) => p.client.toLowerCase() === clientName.toLowerCase())
   const totalAmount = clientProjects.reduce((s, p) => s + (Number(p.amount.replace(/[^0-9.]/g, "")) || 0), 0)
   const paidAmount = clientProjects.filter((p) => p.amountStatus === "Paid").reduce((s, p) => s + (Number(p.amount.replace(/[^0-9.]/g, "")) || 0), 0)
   const dueAmount = totalAmount - paidAmount

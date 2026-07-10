@@ -11,7 +11,7 @@ export default function LoginPage() {
             <span className="material-symbols-outlined text-3xl text-on-primary-container" aria-hidden="true">rocket_launch</span>
           </div>
           <h1 className="text-display-lg text-on-surface mb-2">FreelanceOS</h1>
-          <p className="text-body-lg text-on-surface-variant">Enterprise Workspace</p>
+          <p className="text-body-lg text-on-surface-variant">Manage your freelance business</p>
         </div>
 
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-sm p-8">

@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"], display: "swap" })
 const AgentationWrapper = dynamic(() => import("@/components/AgentationWrapper").then((m) => m.AgentationWrapper))
 
 export const metadata: Metadata = {
-  title: "FreelanceOS - Enterprise Workspace",
+  title: "FreelanceOS",
   description: "Freelancer CRM built with Google Workspace",
 }
 

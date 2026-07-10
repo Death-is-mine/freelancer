@@ -3,6 +3,7 @@ import { TopNav } from "@/components/layout/TopNav"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { CommandPalette } from "@/components/CommandPalette"
 import { UndoHandler } from "@/components/UndoHandler"
+import { ThemeProvider } from "@/components/ThemeProvider"
 import { Suspense } from "react"
 import { SessionProvider } from "next-auth/react"
 
@@ -55,7 +56,9 @@ function NavProvider({ children }: { children: React.ReactNode }) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <NavProvider>{children}</NavProvider>
+      <ThemeProvider>
+        <NavProvider>{children}</NavProvider>
+      </ThemeProvider>
     </SessionProvider>
   )
 }

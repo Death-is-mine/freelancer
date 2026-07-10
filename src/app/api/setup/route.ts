@@ -1,4 +1,5 @@
-import { auth } from "@/lib/auth"
+import { getServerAccessToken } from "@/lib/getServerToken"
+import { rateLimit } from "@/lib/validate"
 import { NextResponse } from "next/server"
 
 const DRIVE_BASE = "https://www.googleapis.com/drive/v3"
@@ -19,15 +20,15 @@ const headers: Record<string, string[]> = {
 async function driveRequest(path: string, accessToken: string, options: RequestInit = {}) {
   const res = await fetch(`${DRIVE_BASE}${path}`, {
     ...options,
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...options.headers as any },
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...options.headers as Record<string, string> },
   })
   if (!res.ok) throw new Error(`Drive API error: ${res.status} ${await res.text()}`)
   return res.json()
 }
 
 export async function POST() {
-  const session = await auth()
-  const accessToken = (session as any)?.accessToken
+  if (!rateLimit("setup", 5, 60000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+  const accessToken = await getServerAccessToken()
   if (!accessToken) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
   const root = await driveRequest("/files?q=name%3D%27Freelancer%27+and+mimeType%3D%27application%2Fvnd%2Egoogle%2Dapps%2Efolder%27+and+trashed%3Dfalse", accessToken)

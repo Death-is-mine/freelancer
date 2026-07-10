@@ -63,9 +63,9 @@ export function CommandPalette() {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]" onClick={() => setOpen(false)}>
-      <div className="fixed inset-0 bg-black/40" />
-      <div className="relative bg-surface-container-lowest w-full max-w-lg rounded-2xl border border-outline-variant/10 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
+      <div className="fixed inset-0 bg-black/40" onClick={() => setOpen(false)} />
+      <div className="relative bg-surface-container-lowest w-full max-w-lg rounded-2xl border border-outline-variant/10 shadow-2xl overflow-hidden z-10" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 px-4 border-b border-outline-variant/5">
           <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">search</span>
           <input

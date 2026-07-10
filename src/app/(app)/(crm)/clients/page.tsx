@@ -1,10 +1,13 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { projects } from "@/lib/store"
+import { getProjects } from "@/lib/store"
 
 export default function ClientsPage() {
-  const activeProjects = projects
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  const activeProjects = mounted ? getProjects() : []
   const clientMap = new Map<string, { name: string; count: number; amount: number }>()
   activeProjects.forEach((p) => {
     const existing = clientMap.get(p.client)
@@ -16,7 +19,7 @@ export default function ClientsPage() {
   if (allClients.length === 0) {
     return (
       <>
-        <nav className="flex items-center gap-2 text-on-surface-variant mb-1"><span className="text-label-md">Workspace</span><span className="text-on-surface-variant/30">/</span><span className="text-label-md font-semibold text-on-surface">Clients</span></nav>
+<nav className="flex items-center gap-2 text-on-surface-variant mb-1"><span className="text-label-md">CRM</span><span className="text-on-surface-variant/30">/</span><span className="text-label-md font-semibold text-on-surface">Clients</span></nav>
         <h2 className="text-headline-lg tracking-tight text-on-surface mb-8">Clients</h2>
         <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 p-12 text-center">
           <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-4" aria-hidden="true">group</span>

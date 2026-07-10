@@ -78,7 +78,7 @@ export function Sidebar() {
         </div>
         <div>
           <h1 className="text-headline-md font-bold text-on-surface">FreelanceOS</h1>
-          <p className="text-[10px] text-on-surface-variant font-medium tracking-wider uppercase">Enterprise Workspace</p>
+          <p className="text-[10px] text-on-surface-variant font-medium tracking-wider uppercase">Freelance Workspace</p>
         </div>
       </div>
 

@@ -25,7 +25,7 @@ export const { handlers, auth } = NextAuth({
         token.name = profile.name
         token.email = profile.email
         token.picture = profile.picture
-        token.locale = (profile as any).locale
+        token.locale = (profile as Record<string, string | undefined>).locale
       }
       if (token.expiresAt && Date.now() / 1000 > (token.expiresAt as number) - 300) {
         const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -44,19 +44,16 @@ export const { handlers, auth } = NextAuth({
       }
       return token
     },
-    async session({ session, token }) {
-      const s = session as any
-      if (s.user) {
-        s.user.id = token.sub!
-        s.user.name = (token.name as string) || s.user.name
-        s.user.email = (token.email as string) || s.user.email
-        s.user.image = (token.picture as string) || s.user.image
-        s.user.locale = token.locale as string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async session({ session, token }: { session: any; token: any }) {
+      if (session.user) {
+        session.user.id = token.sub!
+        session.user.name = (token.name as string) || session.user.name
+        session.user.email = (token.email as string) || session.user.email
+        session.user.image = (token.picture as string) || session.user.image
+        session.user.locale = token.locale as string
       }
-      s.accessToken = token.accessToken as string
-      s.refreshToken = token.refreshToken as string
-      s.spreadsheetId = process.env.SHEETS_ID || null
-      return s as any
+      return session
     },
   },
   cookies: {

@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from "react"
 
 type Action = { type: "delete"; store: string; item: unknown } | { type: "create"; store: string; item: unknown }
 
-let _undoStack: Action[] = []
+const _undoStack: Action[] = []
 let _redoStack: Action[] = []
-let _listeners: Set<() => void> = new Set()
+const _listeners: Set<() => void> = new Set()
 
 function notify() { _listeners.forEach((l) => l()) }
 

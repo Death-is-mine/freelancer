@@ -2,17 +2,18 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { leads as store, addLead as storeAdd, deleteLead as storeDelete, updateLead as storeUpdate, convertLeadToProject, type Lead } from "@/lib/store"
+import { getLeads as store, addLead as storeAdd, deleteLead as storeDelete, updateLead as storeUpdate, convertLeadToProject, type Lead } from "@/lib/store"
 
 export default function LeadsPage() {
   const router = useRouter()
-  const [leads, setLeads] = useState<Lead[]>(store)
+  const [leads, setLeads] = useState<Lead[]>([])
+  useEffect(() => { setLeads(store()) }, [])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: "", email: "", company: "", source: "", value: "" })
   const [toast, setToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: "" })
 
   function findDup(e: string, c: string) {
-    return store.find((l) => l.email.toLowerCase() === e.toLowerCase() || l.company.toLowerCase() === c.toLowerCase())
+    return store().find((l) => l.email.toLowerCase() === e.toLowerCase() || l.company.toLowerCase() === c.toLowerCase())
   }
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -26,7 +27,7 @@ export default function LeadsPage() {
   function handleConvert(leadId: string) {
     const proj = convertLeadToProject(leadId)
     if (proj) {
-      setLeads([...store])
+      setLeads([...store()])
       setToast({ show: true, msg: `Converted to project for ${proj.client}` })
       setTimeout(() => router.push(`/projects/${proj.id}`), 1200)
     }
@@ -48,7 +49,7 @@ export default function LeadsPage() {
       const skipped = parsed.filter((l) => findDup(l.email, l.company))
       const ok = parsed.filter((l) => !findDup(l.email, l.company))
       ok.forEach((l) => storeAdd(l))
-      setLeads([...store])
+      setLeads([...store()])
       if (skipped.length) {
         setToast({ show: true, msg: `${skipped.length} duplicate${skipped.length > 1 ? 's' : ''} skipped` })
         setTimeout(() => setToast({ show: false, msg: "" }), 3000)
@@ -118,7 +119,7 @@ export default function LeadsPage() {
                 <td className="px-6 py-4 text-body-md text-on-surface-variant">{lead.source}</td>
                 <td className="px-6 py-4 text-body-md text-on-surface">{lead.value}</td>
                 <td className="px-6 py-4 flex items-center gap-2">
-                  <select value={lead.status} onChange={(e) => { storeUpdate(lead.id, { status: e.target.value }); setLeads([...store]) }} aria-label="Lead status" className="bg-transparent border border-outline-variant/20 rounded-lg px-2 py-1 text-label-sm outline-none">
+                  <select value={lead.status} onChange={(e) => { storeUpdate(lead.id, { status: e.target.value }); setLeads([...store()]) }} aria-label="Lead status" className="bg-transparent border border-outline-variant/20 rounded-lg px-2 py-1 text-label-sm outline-none">
                     <option value="New">New</option>
                     <option value="Contacted">Contacted</option>
                     <option value="Qualified">Qualified</option>
@@ -133,7 +134,7 @@ export default function LeadsPage() {
                       Convert
                     </button>
                   )}
-                  <button onClick={() => { storeDelete(lead.id); setLeads([...store]) }} className="p-1 rounded hover:bg-error/10 text-on-surface-variant opacity-0 group-hover:opacity-100 transition-all" aria-label={`Delete ${lead.name}`}>
+                  <button onClick={() => { storeDelete(lead.id); setLeads([...store()]) }} className="p-1 rounded hover:bg-error/10 text-on-surface-variant opacity-0 group-hover:opacity-100 transition-all" aria-label={`Delete ${lead.name}`}>
                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
                   </button>
                 </td>
@@ -143,9 +144,9 @@ export default function LeadsPage() {
         </table>
       </div>
 
-      <div className={`fixed inset-0 z-[100] flex items-center justify-center ${showForm ? '' : 'hidden'}`} onClick={() => setShowForm(false)}>
-        <div className="fixed inset-0 bg-black/40" />
-        <div className="relative bg-surface-container-lowest w-full max-w-md rounded-2xl border border-outline-variant/10 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+      <div className={`fixed inset-0 z-[100] flex items-center justify-center ${showForm ? '' : 'hidden'}`}>
+        <div className="fixed inset-0 bg-black/40" onClick={() => setShowForm(false)} />
+        <div className="relative bg-surface-container-lowest w-full max-w-md rounded-2xl border border-outline-variant/10 shadow-2xl p-6 z-10" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-title-lg text-on-surface mb-4">Add Lead</h3>
           <div className="space-y-4">
             <input aria-label="Lead name" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20" />
@@ -165,7 +166,7 @@ export default function LeadsPage() {
                 return
               }
               storeAdd({ id: crypto.randomUUID().slice(0, 8), ...form, status: "New", date: new Date().toLocaleDateString() })
-              setLeads([...store])
+              setLeads([...store()])
               setShowForm(false)
               setForm({ name: "", email: "", company: "", source: "", value: "" })
             }} className="px-5 py-2 rounded-xl bg-primary text-on-primary text-label-md font-semibold">Add</button>

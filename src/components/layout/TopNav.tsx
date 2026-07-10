@@ -23,7 +23,6 @@ export const TopNav = memo(function TopNav() {
   const router = useRouter()
   const { data: session } = useSession()
   const [syncing, setSyncing] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -55,9 +54,14 @@ export const TopNav = memo(function TopNav() {
       .catch(() => localStorage.removeItem(SETUP_KEY))
   }, [session?.user])
 
-  const handleSync = useCallback(() => {
+  const handleSync = useCallback(async () => {
     setSyncing(true)
-    setTimeout(() => setSyncing(false), 1500)
+    try {
+      if (typeof window === "undefined" || !("indexedDB" in window)) return
+      const { syncAll } = await import("@/lib/offline")
+      await syncAll()
+    } catch {}
+    setTimeout(() => setSyncing(false), 600)
   }, [])
 
   return (
@@ -79,15 +83,8 @@ export const TopNav = memo(function TopNav() {
         <button onClick={handleSync} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-all relative" aria-label="Sync now">
           <span className={`material-symbols-outlined ${syncing ? "animate-spin" : ""}`} aria-hidden="true">sync</span>
         </button>
-        <button onClick={() => setNotifOpen((o) => !o)} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-all relative" aria-label="Notifications">
+        <button onClick={() => router.push("/settings/notifications")} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-all relative" aria-label="Notifications">
           <span className="material-symbols-outlined" aria-hidden="true">notifications</span>
-          <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface" aria-hidden="true"></span>
-          {notifOpen && (
-            <div className="absolute top-full right-0 mt-2 w-72 bg-surface-container-lowest border border-outline-variant/10 rounded-xl shadow-2xl p-4 text-left z-50" onClick={(e) => e.stopPropagation()}>
-              <p className="text-label-md font-semibold text-on-surface mb-2">Notifications</p>
-              <p className="text-body-md text-on-surface-variant/80">No new notifications</p>
-            </div>
-          )}
         </button>
         <div className="h-8 w-px bg-outline-variant/30 mx-2" aria-hidden="true"></div>
         <div ref={menuRef} className="relative">

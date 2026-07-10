@@ -1,35 +1,37 @@
 "use client"
 
-import { useState } from "react"
-import { projects as projectStore, updateProject } from "@/lib/store"
+import { useState, useEffect } from "react"
+import { getProjects as projectStore, updateProject, generateInvoice as storeGenerateInvoice } from "@/lib/store"
 
 export default function PaymentsPage() {
-  const [render, setRender] = useState(0)
+  const [, forceUpdate] = useState(0)
   const [toast, setToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: "" })
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
-  const refresh = () => setRender((n) => n + 1)
-  const withInvoices = projectStore.filter((p) => p.invoiceNum !== "—")
+  const refresh = () => forceUpdate((n) => n + 1)
+  function showToast(msg: string) {
+    setToast({ show: true, msg })
+    setTimeout(() => setToast({ show: false, msg: "" }), 3000)
+  }
+
+  const projects = mounted ? projectStore() : []
+  const withInvoices = projects.filter((p) => p.invoiceNum !== "—")
+
+  function generateInvoice() {
+    const pending = projects.filter((p) => p.invoiceNum === "—")
+    if (pending.length === 0) { showToast("All projects already have invoices."); return }
+    const result = storeGenerateInvoice(pending[0].id)
+    if (result) showToast(`Invoice ${result.number} generated for ${pending[0].client}`)
+    refresh()
+  }
+
   const stats = [
     { label: "Total Invoices", value: withInvoices.length },
     { label: "Paid", value: withInvoices.filter((p) => p.amountStatus === "Paid").length },
     { label: "Unpaid", value: withInvoices.filter((p) => p.amountStatus === "Pending").length },
     { label: "Overdue", value: withInvoices.filter((p) => p.amountStatus === "Overdue").length },
   ]
-
-  function showToast(msg: string) {
-    setToast({ show: true, msg })
-    setTimeout(() => setToast({ show: false, msg: "" }), 3000)
-  }
-
-  function generateInvoice() {
-    const pending = projectStore.filter((p) => p.invoiceNum === "—")
-    if (pending.length === 0) { showToast("All projects already have invoices."); return }
-    const p = pending[0]
-    const num = `INV-${String(withInvoices.length + 1).padStart(3, "0")}`
-    updateProject(p.id, { invoiceNum: num })
-    refresh()
-    showToast(`Invoice ${num} generated for ${p.client}`)
-  }
 
   return (
     <div>

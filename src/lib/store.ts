@@ -10,6 +10,14 @@ export interface Project {
   id: string; client: string; requirement: string; amount: string; amountStatus: string; dueDate: string; invoiceNum: string; agreementNum: string; leadEmail: string
 }
 
+export interface Invoice {
+  id: string; projectId: string; number: string; amount: string; status: string; issuedAt: string; dueDate: string
+}
+
+export interface Agreement {
+  id: string; projectId: string; number: string; status: string; issuedAt: string
+}
+
 export interface ProjectFile {
   id: string; name: string; driveFileId: string; size: number; mimeType: string; uploadedAt: string
 }
@@ -30,7 +38,7 @@ function save(key: string, data: unknown) {
   try { localStorage.setItem(key, JSON.stringify(data)) } catch {}
 }
 
-async function idbPut(store: string, value: any) {
+async function idbPut(store: string, value: unknown) {
   try { const { put } = await import("./offline"); await put(store, value) } catch {}
 }
 
@@ -38,8 +46,9 @@ async function idbDelete(store: string, id: string) {
   try { const { del } = await import("./offline"); await del(store, id) } catch {}
 }
 
-export let projects: Project[] = load("fos_projects", [])
-export let leads: Lead[] = load("fos_leads", [])
+export function getProjects(): Project[] { return load("fos_projects", []) }
+
+export function getLeads(): Lead[] { return load("fos_leads", []) }
 
 function addActivity(projectId: string, type: string, text: string) {
   const entry: ActivityEntry = { id: crypto.randomUUID().slice(0, 8), projectId, type, text, timestamp: new Date().toISOString() }
@@ -72,18 +81,21 @@ export function removeProjectFile(projectId: string, fileId: string) {
 }
 
 export function addProject(p: Project) {
+  const projects = getProjects()
   projects.unshift(p); save("fos_projects", projects); idbPut("projects", p)
 }
 
 export function addLead(l: Lead) {
+  const leads = getLeads()
   leads.unshift(l); save("fos_leads", leads); idbPut("leads", l)
 }
 
 export function deleteLead(id: string) {
-  leads = leads.filter((l) => l.id !== id); save("fos_leads", leads); idbDelete("leads", id)
+  const leads = getLeads().filter((l) => l.id !== id); save("fos_leads", leads); idbDelete("leads", id)
 }
 
 export function updateProject(id: string, upd: Partial<Project>) {
+  const projects = getProjects()
   const idx = projects.findIndex((p) => p.id === id)
   if (idx !== -1) {
     Object.assign(projects[idx], upd)
@@ -94,15 +106,63 @@ export function updateProject(id: string, upd: Partial<Project>) {
 }
 
 export function deleteProject(id: string) {
-  projects = projects.filter((p) => p.id !== id); save("fos_projects", projects); idbDelete("projects", id)
+  const projects = getProjects().filter((p) => p.id !== id); save("fos_projects", projects); idbDelete("projects", id)
 }
 
 export function updateLead(id: string, upd: Partial<Lead>) {
+  const leads = getLeads()
   const idx = leads.findIndex((l) => l.id === id)
   if (idx !== -1) { Object.assign(leads[idx], upd); save("fos_leads", leads); idbPut("leads", leads[idx]) }
 }
 
+export function generateInvoice(projectId: string): Invoice | null {
+  const projects = getProjects()
+  const project = projects.find((p) => p.id === projectId)
+  if (!project) return null
+  const existing = load<Invoice[]>("fos_invoices", [])
+  const nextNum = (existing.length + 1).toString().padStart(3, "0")
+  const invoice: Invoice = {
+    id: crypto.randomUUID().slice(0, 8),
+    projectId,
+    number: `INV-${nextNum}`,
+    amount: project.amount,
+    status: "Pending",
+    issuedAt: new Date().toISOString(),
+    dueDate: project.dueDate || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+  }
+  project.invoiceNum = invoice.number
+  save("fos_projects", projects)
+  const invoices = load<Invoice[]>("fos_invoices", [])
+  invoices.unshift(invoice)
+  save("fos_invoices", invoices)
+  idbPut("invoices", invoice)
+  addActivity(projectId, "invoice", `Invoice ${invoice.number} generated`)
+  return invoice
+}
+
+export function generateAgreement(projectId: string): Agreement | null {
+  const projects = getProjects()
+  const project = projects.find((p) => p.id === projectId)
+  if (!project) return null
+  const agreement: Agreement = {
+    id: crypto.randomUUID().slice(0, 8),
+    projectId,
+    number: `AGR-${Date.now().toString(36).toUpperCase()}`,
+    status: "Draft",
+    issuedAt: new Date().toISOString(),
+  }
+  project.agreementNum = agreement.number
+  save("fos_projects", projects)
+  const agreements = load<Agreement[]>("fos_agreements", [])
+  agreements.unshift(agreement)
+  save("fos_agreements", agreements)
+  idbPut("agreements", agreement)
+  addActivity(projectId, "agreement", `Agreement ${agreement.number} generated`)
+  return agreement
+}
+
 export function convertLeadToProject(leadId: string) {
+  const leads = getLeads()
   const lead = leads.find((l) => l.id === leadId)
   if (!lead) return null
   lead.status = "Converted"
@@ -117,6 +177,7 @@ export function convertLeadToProject(leadId: string) {
     agreementNum: "—",
     leadEmail: lead.email,
   }
+  const projects = getProjects()
   projects.unshift(proj)
   save("fos_projects", projects)
   save("fos_leads", leads)
@@ -127,9 +188,9 @@ export function convertLeadToProject(leadId: string) {
 }
 
 export function getProjectByLeadEmail(email: string): Project | undefined {
-  return projects.find((p) => p.leadEmail.toLowerCase() === email.toLowerCase())
+  return getProjects().find((p) => p.leadEmail.toLowerCase() === email.toLowerCase())
 }
 
 export function getProjectsByClient(clientName: string): Project[] {
-  return projects.filter((p) => p.client.toLowerCase() === clientName.toLowerCase())
+  return getProjects().filter((p) => p.client.toLowerCase() === clientName.toLowerCase())
 }

@@ -105,20 +105,74 @@
   --border-radius: 12px;
 }
 
+.dark {
+  --color-primary: #b4c5ff;
+  --color-on-primary: #002d75;
+  --color-primary-container: #0042a0;
+  --color-on-primary-container: #dbe1ff;
+  --color-secondary: #b7c8e1;
+  --color-on-secondary: #223249;
+  --color-secondary-container: #38485d;
+  --color-on-secondary-container: #d0e1fb;
+  --color-tertiary: #ffb596;
+  --color-on-tertiary: #522100;
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-surface: #111416;
+  --color-on-surface: #e0e3e5;
+  --color-on-surface-variant: #c3c6d7;
+  --color-surface-container-lowest: #0c0f11;
+  --color-surface-container-low: #191c1e;
+  --color-surface-container: #1d2022;
+  --color-surface-container-high: #282b2d;
+  --color-surface-container-highest: #333638;
+  --color-outline-variant: #434655;
+  --color-outline: #8e91a1;
+  --color-inverse-surface: #e0e3e5;
+  --color-inverse-on-surface: #191c1e;
+  --color-inverse-primary: #004ac6;
+
+  --primary: #b4c5ff;
+  --on-primary: #002d75;
+  --primary-container: #0042a0;
+  --on-primary-container: #dbe1ff;
+  --background: #111416;
+  --on-background: #e0e3e5;
+  --surface: #111416;
+  --on-surface: #e0e3e5;
+  --on-surface-variant: #c3c6d7;
+  --surface-container-lowest: #0c0f11;
+  --surface-container-low: #191c1e;
+  --surface-container: #1d2022;
+  --surface-container-high: #282b2d;
+  --surface-container-highest: #333638;
+  --surface-dim: #111416;
+  --surface-bright: #373b3d;
+  --outline-variant: #434655;
+  --outline: #8e91a1;
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --inverse-surface: #e0e3e5;
+  --inverse-on-surface: #191c1e;
+  --inverse-primary: #004ac6;
+
+  color-scheme: dark;
+}
+
 body {
   font-family: "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 :focus-visible {
-  outline: 2px solid #004ac6;
+  outline: 2px solid var(--color-primary, #004ac6);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
 @supports not selector(:focus-visible) {
   :focus {
-    outline: 2px solid #004ac6;
+    outline: 2px solid var(--color-primary, #004ac6);
     outline-offset: 2px;
   }
 }
@@ -159,8 +213,8 @@ body {
 
 .sidebar-item-active {
   background: rgba(208, 225, 251, 0.5);
-  border-left: 4px solid #004ac6;
-  color: #004ac6;
+  border-left: 4px solid var(--color-primary, #004ac6);
+  color: var(--color-primary, #004ac6);
   font-weight: 600;
 }
 

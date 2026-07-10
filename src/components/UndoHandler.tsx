@@ -6,7 +6,7 @@ import { put, del } from "@/lib/offline"
 
 export function UndoHandler() {
   const [msg, setMsg] = useState("")
-  const { undo, redo } = useUndoCount()
+  useUndoCount()
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -15,7 +15,7 @@ export function UndoHandler() {
         const action = popUndo()
         if (!action) return
         if (action.type === "delete") {
-          put(action.store, action.item as any).then(() => setMsg("Undo delete"))
+          put(action.store, action.item).then(() => setMsg("Undo delete"))
         }
         setTimeout(() => setMsg(""), 2000)
       }
@@ -24,7 +24,7 @@ export function UndoHandler() {
         const action = popRedo()
         if (!action) return
         if (action.type === "delete") {
-          del(action.store, (action.item as any).id).then(() => setMsg("Redo delete"))
+          del(action.store, (action.item as { id: string }).id).then(() => setMsg("Redo delete"))
         }
         setTimeout(() => setMsg(""), 2000)
       }

@@ -10,7 +10,7 @@ let dbPromise: Promise<IDBPDatabase> | null = null
 function getDb() {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion) {
+      upgrade(db) {
         for (const store of STORES) {
           if (!db.objectStoreNames.contains(store)) {
             db.createObjectStore(store, { keyPath: "id" })
@@ -40,4 +40,27 @@ export async function put<T>(store: string, value: T): Promise<void> {
 export async function del(store: string, id: string): Promise<void> {
   const db = await getDb()
   await db.delete(store, id)
+}
+
+export async function syncAll(): Promise<void> {
+  if (typeof window === "undefined") return
+  const keys = ["fos_projects", "fos_leads", "fos_tasks"]
+  const storeMap: Record<string, string> = {
+    fos_projects: "projects",
+    fos_leads: "leads",
+    fos_tasks: "tasks",
+  }
+  for (const key of keys) {
+    const raw = localStorage.getItem(key)
+    if (!raw) continue
+    try {
+      const items = JSON.parse(raw)
+      const store = storeMap[key]
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          await put(store, item)
+        }
+      }
+    } catch {}
+  }
 }

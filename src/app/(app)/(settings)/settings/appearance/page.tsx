@@ -18,7 +18,6 @@ export default function AppearanceSettingsPage() {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light")
   const [accent, setAccent] = useState(ACCENTS[0])
   const [preset, setPreset] = useState("Arctic")
-  const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem("freelancer-theme")
@@ -27,14 +26,24 @@ export default function AppearanceSettingsPage() {
     if (savedAccent && ACCENTS.includes(savedAccent)) setAccent(savedAccent)
   }, [])
 
+  function applyTheme(t: string, c: string) {
+    document.documentElement.classList.toggle("dark", t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches))
+    document.documentElement.style.setProperty("--color-primary", c)
+  }
+
+  useEffect(() => { applyTheme(theme, accent) }, [theme, accent])
+
   useEffect(() => {
-    document.documentElement.style.setProperty("--color-primary", accent)
-  }, [accent])
+    if (theme !== "system") return
+    const mq = window.matchMedia("(prefers-color-scheme: dark)")
+    const handler = () => { applyTheme("system", accent) }
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [theme, accent])
 
   function save() {
     localStorage.setItem("freelancer-theme", theme)
     localStorage.setItem("freelancer-accent", accent)
-    setDirty(false)
   }
 
   function discard() {
@@ -42,17 +51,14 @@ export default function AppearanceSettingsPage() {
     const savedAccent = localStorage.getItem("freelancer-accent")
     if (saved) setTheme(saved)
     if (savedAccent && ACCENTS.includes(savedAccent)) setAccent(savedAccent)
-    setDirty(false)
   }
 
   function selectAccent(color: string) {
     setAccent(color)
-    setDirty(true)
   }
 
   function selectTheme(t: "light" | "dark" | "system") {
     setTheme(t)
-    setDirty(true)
   }
 
   return (

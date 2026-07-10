@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { projects as store, addProject as storeAdd, updateProject as storeUpdate, type Project } from "@/lib/store"
+import { getProjects as store, addProject as storeAdd, updateProject as storeUpdate, type Project } from "@/lib/store"
 
 export default function ProjectsPage() {
   const searchParams = useSearchParams()
-  const [list, setList] = useState<Project[]>(store)
+  const [list, setList] = useState<Project[]>([])
+  useEffect(() => { setList(store()) }, [])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ client: "", requirement: "", amount: "", dueDate: "", leadEmail: "" })
 
@@ -26,7 +27,7 @@ export default function ProjectsPage() {
     if (!form.client.trim() || !form.requirement.trim()) return
     const p: Project = { id: crypto.randomUUID().slice(0, 8), client: form.client, requirement: form.requirement, amount: `$${form.amount || "0"}`, amountStatus: "Pending", dueDate: form.dueDate || "—", invoiceNum: "—", agreementNum: "—", leadEmail: form.leadEmail }
     storeAdd(p)
-    setList([...store])
+    setList([...store()])
     setShowForm(false)
     setForm({ client: "", requirement: "", amount: "", dueDate: "", leadEmail: "" })
     // ponytail: calendar reminder would call Google Calendar API here
@@ -88,7 +89,7 @@ export default function ProjectsPage() {
                 <td className="px-6 py-4 text-body-md text-on-surface">{p.requirement}</td>
                 <td className="px-6 py-4 text-body-md font-semibold text-on-surface">{p.amount}</td>
                 <td className="px-6 py-4">
-                  <select value={p.amountStatus} onChange={(e) => { storeUpdate(p.id, { amountStatus: e.target.value }); setList([...store]) }} aria-label={`Payment status for ${p.client}`} className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border-0 outline-none ${p.amountStatus === "Paid" ? "bg-secondary-container text-on-secondary-container" : p.amountStatus === "Overdue" ? "bg-error-container text-on-error-container" : "bg-surface-container-high text-on-surface-variant"}`}>
+                  <select value={p.amountStatus} onChange={(e) => { storeUpdate(p.id, { amountStatus: e.target.value }); setList([...store()]) }} aria-label={`Payment status for ${p.client}`} className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border-0 outline-none ${p.amountStatus === "Paid" ? "bg-secondary-container text-on-secondary-container" : p.amountStatus === "Overdue" ? "bg-error-container text-on-error-container" : "bg-surface-container-high text-on-surface-variant"}`}>
                     <option value="Pending">Pending</option>
                     <option value="Paid">Paid</option>
                     <option value="Overdue">Overdue</option>
@@ -104,9 +105,9 @@ export default function ProjectsPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setShowForm(false)}>
-          <div className="fixed inset-0 bg-black/40" />
-          <div className="relative bg-surface-container-lowest w-full max-w-lg rounded-2xl border border-outline-variant/10 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setShowForm(false)} />
+          <div className="relative bg-surface-container-lowest w-full max-w-lg rounded-2xl border border-outline-variant/10 shadow-2xl p-6 z-10" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-title-lg text-on-surface mb-4">New Project</h3>
             <div className="space-y-4">
               <input aria-label="Client name" placeholder="Client name" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} className="w-full bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20" />

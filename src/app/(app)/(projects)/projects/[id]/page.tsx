@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
-import { projects, updateProject, deleteProject, getProjectActivity, getProjectFiles, addProjectFile, removeProjectFile, type ActivityEntry, type ProjectFile } from "@/lib/store"
+import { getProjects, updateProject, deleteProject, getProjectActivity, getProjectFiles, addProjectFile, removeProjectFile, generateInvoice, generateAgreement, type ActivityEntry, type ProjectFile } from "@/lib/store"
 
 interface ProjectTask { id: string; title?: string; text?: string; done: boolean; projectId?: string }
 
@@ -22,7 +21,7 @@ function formatTime(iso: string) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 }
 
-function ProjectFiles({ projectId, accessToken }: { projectId: string; accessToken?: string }) {
+function ProjectFiles({ projectId }: { projectId: string }) {
   const [files, setFiles] = useState<ProjectFile[]>(getProjectFiles(projectId))
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -31,17 +30,12 @@ function ProjectFiles({ projectId, accessToken }: { projectId: string; accessTok
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !accessToken) return
+    if (!file) return
     setUploading(true)
     try {
-      const form = new FormData()
-      form.append("metadata", new Blob([JSON.stringify({ name: file.name, parents: [] })], { type: "application/json" }))
-      form.append("file", file)
-      const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: form,
-      })
+      const body = new FormData()
+      body.append("file", file)
+      const res = await fetch("/api/drive/upload", { method: "POST", body })
       const data = await res.json()
       if (data.id) {
         addProjectFile(projectId, { id: crypto.randomUUID().slice(0, 8), name: file.name, driveFileId: data.id, size: file.size, mimeType: file.type, uploadedAt: new Date().toISOString() })
@@ -54,10 +48,7 @@ function ProjectFiles({ projectId, accessToken }: { projectId: string; accessTok
 
   async function handleDelete(fileId: string, driveFileId: string) {
     try {
-      await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
+      await fetch(`/api/drive/delete?fileId=${driveFileId}`, { method: "DELETE" })
     } catch {}
     removeProjectFile(projectId, fileId)
     refresh()
@@ -125,8 +116,9 @@ function ActivityFeed({ entries }: { entries: ActivityEntry[] }) {
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { data: session } = useSession()
-  const project = projects.find((p) => p.id === id)!
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  const project = (mounted ? getProjects() : []).find((p) => p.id === id)!
   const [editing, setEditing] = useState(false)
   const [edit, setEdit] = useState({ client: "", requirement: "", amount: "", dueDate: "", leadEmail: "" })
   const [toast, setToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: "" })
@@ -136,7 +128,6 @@ export default function ProjectDetailPage() {
   const [newTaskText, setNewTaskText] = useState("")
 
   const activity = getProjectActivity(id)
-  const accessToken = (session as any)?.accessToken
 
   useEffect(() => {
     if (!editing) return
@@ -146,21 +137,21 @@ export default function ProjectDetailPage() {
   }, [editing])
 
   useEffect(() => {
-    if (!notes) { setNoteSaved(false); return }
+    if (!notes) return
     const t = setTimeout(() => { lsSet(`fos_notes_${id}`, notes); setNoteSaved(true); setTimeout(() => setNoteSaved(false), 2000) }, 800)
     return () => clearTimeout(t)
   }, [notes, id])
 
   useEffect(() => {
-    const all = lsGet<any[]>("fos_tasks", [])
-    setProjectTasks(all.filter((t: any) => t.projectId === id))
+    const all = lsGet<ProjectTask[]>("fos_tasks", [])
+    setProjectTasks(all.filter((t) => t.projectId === id))
   }, [id])
 
-  function syncAll(fn: (tasks: any[]) => any[]) {
-    const all = lsGet<any[]>("fos_tasks", [])
+  function syncAll(fn: (tasks: ProjectTask[]) => ProjectTask[]) {
+    const all = lsGet<ProjectTask[]>("fos_tasks", [])
     const next = fn(all)
     lsSet("fos_tasks", next)
-    setProjectTasks(next.filter((t: any) => t.projectId === id))
+    setProjectTasks(next.filter((t) => t.projectId === id))
   }
 
   const addTask = useCallback(() => {
@@ -289,7 +280,7 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
-        <ProjectFiles projectId={id} accessToken={accessToken} />
+        <ProjectFiles projectId={id} />
 
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/5">
           <h3 className="text-label-md text-on-surface-variant uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -327,11 +318,11 @@ export default function ProjectDetailPage() {
             Actions
           </h3>
           <div className="space-y-2">
-            <button onClick={() => { updateProject(project.id, { invoiceNum: `INV-${Date.now().toString(36).toUpperCase()}` }); setToast({ show: true, msg: "Invoice generated" }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
+            <button onClick={() => { generateInvoice(project.id); setToast({ show: true, msg: `Invoice ${project.invoiceNum === "—" ? "generated" : "regenerated"}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">receipt</span>
               <div><p className="text-body-md font-semibold text-on-surface">Generate Invoice</p><p className="text-label-sm text-on-surface-variant/80">Create an invoice for this project</p></div>
             </button>
-            <button onClick={() => { updateProject(project.id, { agreementNum: `AGR-${Date.now().toString(36).toUpperCase()}` }); setToast({ show: true, msg: "Agreement generated" }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
+            <button onClick={() => { generateAgreement(project.id); setToast({ show: true, msg: `Agreement ${project.agreementNum === "—" ? "generated" : "regenerated"}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">contract</span>
               <div><p className="text-body-md font-semibold text-on-surface">Generate Agreement</p><p className="text-label-sm text-on-surface-variant/80">Create a service agreement</p></div>
             </button>
@@ -383,9 +374,9 @@ export default function ProjectDetailPage() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setEditing(false)}>
-          <div className="fixed inset-0 bg-black/40" />
-          <div className="relative bg-surface-container-lowest w-full max-w-lg rounded-2xl border border-outline-variant/10 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setEditing(false)} />
+          <div className="relative bg-surface-container-lowest w-full max-w-lg rounded-2xl border border-outline-variant/10 shadow-2xl p-6 z-10" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-title-lg text-on-surface mb-4">Edit Project</h3>
             <div className="space-y-4">
               <input placeholder="Client name" value={edit.client} onChange={(e) => setEdit({ ...edit, client: e.target.value })} className="w-full bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20" />

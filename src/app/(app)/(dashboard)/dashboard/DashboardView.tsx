@@ -1,14 +1,13 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { projects, leads } from "@/lib/store"
+import { getProjects, getLeads } from "@/lib/store"
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 
 function useTime() {
-  const [time, setTime] = useState<Date | null>(null)
+  const [time, setTime] = useState(new Date())
   useEffect(() => {
-    setTime(new Date())
     const id = setInterval(() => setTime(new Date()), 30000)
     return () => clearInterval(id)
   }, [])
@@ -66,19 +65,21 @@ export function DashboardView() {
 
   const userName = session?.user?.name || "Freelancer"
 
-  const totalOutstanding = projects
+  const pjs = getProjects()
+  const lds = getLeads()
+  const totalOutstanding = pjs
     .filter((p) => p.amountStatus === "Pending" || p.amountStatus === "Overdue")
     .reduce((s, p) => s + (Number(p.amount.replace(/[^0-9.]/g, "")) || 0), 0)
-  const overdueCount = projects.filter((p) => p.amountStatus === "Overdue").length
-  const dueToday = projects.filter((p) => p.dueDate === todayStr())
-  const dueTomorrow = projects.filter((p) => p.dueDate === tomorrowStr())
-  const pendingAgreements = projects.filter((p) => p.agreementNum === "—")
-  const invoicesAwaiting = projects.filter((p) => p.invoiceNum !== "—" && (p.amountStatus === "Pending" || p.amountStatus === "Overdue"))
-  const newLeads = leads.filter((l) => l.status === "New")
-  const upcomingDeadlines = next7Days().flatMap((d) => projects.filter((p) => p.dueDate === d && p.dueDate !== "—"))
+  const overdueCount = pjs.filter((p) => p.amountStatus === "Overdue").length
+  const dueToday = pjs.filter((p) => p.dueDate === todayStr())
+  const dueTomorrow = pjs.filter((p) => p.dueDate === tomorrowStr())
+  const pendingAgreements = pjs.filter((p) => p.agreementNum === "—")
+  const invoicesAwaiting = pjs.filter((p) => p.invoiceNum !== "—" && (p.amountStatus === "Pending" || p.amountStatus === "Overdue"))
+  const newLeads = lds.filter((l) => l.status === "New")
+  const upcomingDeadlines = next7Days().flatMap((d) => pjs.filter((p) => p.dueDate === d && p.dueDate !== "—"))
   const recentActivity = [
-    ...projects.slice(0, 5).map((p) => ({ type: "project" as const, text: `New project: ${p.requirement}`, client: p.client })),
-    ...leads.filter((l) => l.status === "Converted").slice(0, 3).map((l) => ({ type: "lead" as const, text: `Lead converted: ${l.name}`, client: l.company })),
+    ...pjs.slice(0, 5).map((p) => ({ type: "project" as const, text: `New project: ${p.requirement}`, client: p.client })),
+    ...lds.filter((l) => l.status === "Converted").slice(0, 3).map((l) => ({ type: "lead" as const, text: `Lead converted: ${l.name}`, client: l.company })),
   ]
 
   return (
@@ -216,10 +217,10 @@ export function DashboardView() {
               <p className="text-body-md font-semibold text-on-surface mt-2">New Task</p>
               <p className="text-label-sm text-on-surface-variant">Track work</p>
             </button>
-            <button onClick={() => router.push("/agreements")} className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/5 hover:border-primary/20 hover:bg-primary/5 transition-all text-left">
+            <button onClick={() => router.push("/projects")} className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/5 hover:border-primary/20 hover:bg-primary/5 transition-all text-left">
               <span className="material-symbols-outlined text-primary" aria-hidden="true">contract</span>
               <p className="text-body-md font-semibold text-on-surface mt-2">Agreement</p>
-              <p className="text-label-sm text-on-surface-variant">Send contract</p>
+              <p className="text-label-sm text-on-surface-variant">Manage agreements</p>
             </button>
           </div>
           <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/10">
