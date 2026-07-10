@@ -117,7 +117,9 @@ export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  const [shareCount, setShareCount] = useState(0)
   useEffect(() => { setMounted(true) }, [])
+  useEffect(() => { getProjectShares(id).then((s) => setShareCount(s.filter((x) => x.enabled).length)) }, [id])
   const project = (mounted ? getProjects() : []).find((p) => p.id === id)!
   const [editing, setEditing] = useState(false)
   const [edit, setEdit] = useState({ client: "", requirement: "", amount: "", dueDate: "", leadEmail: "" })
@@ -277,7 +279,7 @@ export default function ProjectDetailPage() {
             <div className="flex justify-between"><span className="text-body-md text-on-surface-variant">Email</span><span className="text-body-md font-semibold text-on-surface">{project.leadEmail || "—"}</span></div>
             <div className="flex justify-between"><span className="text-body-md text-on-surface-variant">Invoice</span><span className="text-body-md font-semibold text-on-surface">{project.invoiceNum}</span></div>
             <div className="flex justify-between"><span className="text-body-md text-on-surface-variant">Agreement</span><span className="text-body-md font-semibold text-on-surface">{project.agreementNum}</span></div>
-            <div className="flex justify-between"><span className="text-body-md text-on-surface-variant">Shares</span><span className="text-body-md font-semibold text-on-surface">{getProjectShares(project.id).filter((s) => s.enabled).length} active</span></div>
+            <div className="flex justify-between"><span className="text-body-md text-on-surface-variant">Shares</span><span className="text-body-md font-semibold text-on-surface">{shareCount} active</span></div>
           </div>
         </div>
 
@@ -327,7 +329,7 @@ export default function ProjectDetailPage() {
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">contract</span>
               <div><p className="text-body-md font-semibold text-on-surface">Generate Agreement</p><p className="text-label-sm text-on-surface-variant/80">Create a service agreement</p></div>
             </button>
-            <button onClick={() => { const share = addShare(project.id); if (share) { const url = `${window.location.origin}/share/${share.token}`; navigator.clipboard?.writeText(url); setToast({ show: true, msg: `Share link copied: ${url}` }); setTimeout(() => setToast({ show: false, msg: "" }), 3000) } }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
+            <button onClick={async () => { const share = await addShare(project.id); if (share) { const url = `${window.location.origin}/share/${share.token}`; navigator.clipboard?.writeText(url); setToast({ show: true, msg: `Share link copied: ${url}` }); setTimeout(() => setToast({ show: false, msg: "" }), 3000) } }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">share</span>
               <div><p className="text-body-md font-semibold text-on-surface">Share Project</p><p className="text-label-sm text-on-surface-variant/80">Create a public link to share with client</p></div>
             </button>

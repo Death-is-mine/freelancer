@@ -8,7 +8,7 @@ export default function ShareView({ params }: { params: Promise<{ token: string 
   const { token } = use(params)
   const [data, setData] = useState<{ share: Share; project: Project } | null | undefined>(undefined)
 
-  useEffect(() => { setData(getShareByToken(token)) }, [token])
+  useEffect(() => { getShareByToken(token).then(setData) }, [token])
 
   if (data === undefined) return <div className="flex items-center justify-center min-h-screen"><p>Loading…</p></div>
   if (!data) return (

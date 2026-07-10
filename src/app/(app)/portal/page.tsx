@@ -7,13 +7,13 @@ export default function PortalPage() {
   const [shares, setShares] = useState<Share[]>([])
   const [toast, setToast] = useState("")
 
-  function refresh() { setShares(getShares()) }
-  useEffect(refresh, [])
+  async function refresh() { setShares(await getShares()) }
+  useEffect(() => { refresh() }, [])
 
-  function handleCreate() {
+  async function handleCreate() {
     const projects = getProjects()
     if (projects.length === 0) { setToast("Create a project first"); return }
-    const share = addShare(projects[0].id)
+    const share = await addShare(projects[0].id)
     if (!share) return
     const url = `${window.location.origin}/share/${share.token}`
     navigator.clipboard?.writeText(url)
@@ -21,8 +21,8 @@ export default function PortalPage() {
     refresh()
   }
 
-  function handleRevoke(id: string) {
-    revokeShare(id)
+  async function handleRevoke(id: string) {
+    await revokeShare(id)
     setToast("Share link revoked")
     refresh()
   }

@@ -199,45 +199,59 @@ export interface Share {
   id: string; projectId: string; token: string; enabled: boolean; createdAt: string; expiresAt: string | null
 }
 
-export function addShare(projectId: string, expiresAt?: string): Share | null {
-  if (!getProjects().find((p) => p.id === projectId)) return null
-  const share: Share = {
-    id: crypto.randomUUID().slice(0, 8),
-    projectId,
-    token: crypto.randomUUID().slice(0, 12),
-    enabled: true,
-    createdAt: new Date().toISOString(),
-    expiresAt: expiresAt || null,
-  }
-  const shares = load<Share[]>("fos_shares", [])
-  shares.unshift(share)
-  save("fos_shares", shares)
-  addActivity(projectId, "share", `Share link created`)
-  return share
-}
-
-export function getShareByToken(token: string): { share: Share; project: Project } | null {
-  const shares = load<Share[]>("fos_shares", [])
-  const share = shares.find((s) => s.token === token && s.enabled)
-  if (!share) return null
-  if (share.expiresAt && new Date(share.expiresAt) < new Date()) return null
-  const project = getProjects().find((p) => p.id === share.projectId)
+export async function addShare(projectId: string, expiresAt?: string): Promise<Share | null> {
+  const projects = getProjects()
+  const project = projects.find((p) => p.id === projectId)
   if (!project) return null
-  return { share, project }
+  try {
+    const res = await fetch("/api/share", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, projectSnapshot: { ...project }, expiresAt }),
+    })
+    if (!res.ok) return null
+    const share: Share = await res.json()
+    addActivity(projectId, "share", `Share link created`)
+    return share
+  } catch {
+    return null
+  }
 }
 
-export function revokeShare(shareId: string) {
-  const shares = load<Share[]>("fos_shares", [])
-  const share = shares.find((s) => s.id === shareId)
-  if (share) { share.enabled = false; save("fos_shares", shares) }
+export async function getShareByToken(token: string): Promise<{ share: Share; project: Project } | null> {
+  try {
+    const res = await fetch(`/api/share/${encodeURIComponent(token)}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return { share: data as Share, project: data.projectSnapshot as unknown as Project }
+  } catch {
+    return null
+  }
 }
 
-export function getProjectShares(projectId: string): Share[] {
-  return load<Share[]>("fos_shares", []).filter((s) => s.projectId === projectId)
+export async function revokeShare(shareId: string) {
+  try { await fetch(`/api/share?id=${encodeURIComponent(shareId)}`, { method: "DELETE" }) } catch { /* ignore */ }
 }
 
-export function getShares(): Share[] {
-  return load<Share[]>("fos_shares", [])
+export async function getProjectShares(projectId: string): Promise<Share[]> {
+  try {
+    const res = await fetch("/api/share")
+    if (!res.ok) return []
+    const all: Share[] = await res.json()
+    return all.filter((s) => s.projectId === projectId)
+  } catch {
+    return []
+  }
+}
+
+export async function getShares(): Promise<Share[]> {
+  try {
+    const res = await fetch("/api/share")
+    if (!res.ok) return []
+    return await res.json()
+  } catch {
+    return []
+  }
 }
 
 export type RuleTrigger = "lead.created" | "lead.converted" | "project.status_changed" | "invoice.generated" | "invoice.overdue"
