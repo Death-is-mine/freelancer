@@ -6,5 +6,6 @@ export const navItems = [
 
   { label: "Payments", href: "/payments", icon: "payments" },
   { label: "Tasks", href: "/tasks", icon: "assignment" },
+  { label: "Team", href: "/team", icon: "groups" },
   { label: "Reports", href: "/reports", icon: "bar_chart" },
 ]

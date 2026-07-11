@@ -48,12 +48,7 @@ export default function ReportsPage() {
 
   return (
     <>
-      <nav className="flex items-center gap-2 text-on-surface-variant mb-1">
-        <span className="text-label-md">Analytics</span>
-        <span className="text-on-surface-variant/30">/</span>
-        <span className="text-label-md font-semibold text-on-surface">Reports</span>
-      </nav>
-      <h2 className="text-headline-lg tracking-tight text-on-surface mb-8">Reports & Analytics</h2>
+      <h2 className="text-headline-lg tracking-tight text-on-surface mb-8">Reports</h2>
 
       {selected ? (
         <div>

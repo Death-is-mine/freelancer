@@ -35,9 +35,6 @@ export default function PaymentsPage() {
 
   return (
     <div>
-      <nav className="flex items-center gap-2 text-on-surface-variant mb-6">
-        <span className="text-label-md">Finance</span><span className="text-on-surface-variant/30">/</span><span className="text-label-md font-semibold text-on-surface">Payments</span>
-      </nav>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-headline-lg tracking-tight text-on-surface">Payments</h2>

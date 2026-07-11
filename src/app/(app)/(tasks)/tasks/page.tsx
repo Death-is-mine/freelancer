@@ -88,11 +88,6 @@ export default function TasksPage() {
 
   return (
     <>
-      <nav className="flex items-center gap-2 text-on-surface-variant mb-1">
-        <span className="text-label-md">Workspace</span>
-        <span className="text-on-surface-variant/30">/</span>
-        <span className="text-label-md font-semibold text-on-surface">Tasks</span>
-      </nav>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-headline-lg tracking-tight text-on-surface">Tasks</h2>

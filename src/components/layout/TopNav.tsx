@@ -1,5 +1,4 @@
 "use client"
-/* eslint-disable @next/next/no-img-element */
 
 import { memo, useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -37,13 +36,14 @@ function formatNotifTime(iso: string) {
 const SETUP_KEY = "fos_setup_done"
 const SPREADSHEET_KEY = "fos_spreadsheet_id"
 
+type SyncState = "synced" | "syncing" | "offline" | "retrying" | "failed"
+
 const profileItems = [
   { label: "Profile", icon: "person", href: "/settings/profile" },
   { label: "Workspace", icon: "corporate_fare", href: "/settings/workspace" },
-  { label: "Google Workspace", icon: "google", href: "/settings/integrations" },
   { label: "Templates", icon: "folder", href: "/settings/templates" },
+  { label: "Integrations", icon: "google", href: "/settings/integrations" },
   { label: "Appearance", icon: "palette", href: "/settings/appearance" },
-  { label: "Notifications", icon: "notifications_active", href: "/settings/notifications" },
   { label: "Security", icon: "lock", href: "/settings/security" },
   { label: "Billing", icon: "credit_card", href: "/settings/billing" },
   { label: "Help", icon: "help", href: "/settings/help" },
@@ -52,12 +52,13 @@ const profileItems = [
 export const TopNav = memo(function TopNav() {
   const router = useRouter()
   const { data: session } = useSession()
-  const [syncing, setSyncing] = useState(false)
+  const [syncState, setSyncState] = useState<SyncState>("synced")
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
+  const syncTimerRef = useRef<ReturnType<typeof setInterval>>(undefined)
 
   useEffect(() => {
     setNotifications(getNotifications())
@@ -108,15 +109,51 @@ export const TopNav = memo(function TopNav() {
       .catch(() => localStorage.removeItem(SETUP_KEY))
   }, [session?.user])
 
-  const handleSync = useCallback(async () => {
-    setSyncing(true)
+  const doSync = useCallback(async () => {
+    if (typeof window === "undefined" || !("indexedDB" in window)) return
     try {
-      if (typeof window === "undefined" || !("indexedDB" in window)) return
       const { syncAll } = await import("@/lib/offline")
       await syncAll()
-    } catch {}
-    setTimeout(() => setSyncing(false), 600)
+      setSyncState("synced")
+    } catch {
+      setSyncState((s) => s === "syncing" ? "failed" : s)
+    }
   }, [])
+
+  useEffect(() => {
+    setSyncState("syncing")
+    doSync()
+    syncTimerRef.current = setInterval(() => {
+      setSyncState("syncing")
+      doSync()
+    }, 60000)
+    return () => { if (syncTimerRef.current) clearInterval(syncTimerRef.current) }
+  }, [doSync])
+
+  useEffect(() => {
+    if (!("onLine" in navigator)) return
+    const goOnline = () => { setSyncState("syncing"); doSync().finally(() => setSyncState("synced")) }
+    const goOffline = () => setSyncState("offline")
+    window.addEventListener("online", goOnline)
+    window.addEventListener("offline", goOffline)
+    return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline) }
+  }, [doSync])
+
+  const syncColors: Record<SyncState, string> = {
+    synced: "text-success",
+    syncing: "text-primary",
+    offline: "text-warning",
+    retrying: "text-warning",
+    failed: "text-error",
+  }
+
+  const syncLabels: Record<SyncState, string> = {
+    synced: "Synced",
+    syncing: "Syncing...",
+    offline: "Offline",
+    retrying: "Retrying...",
+    failed: "Sync failed",
+  }
 
   return (
     <header className="h-16 w-full sticky top-0 z-40 bg-surface/80 backdrop-blur-md flex justify-between items-center px-margin-x border-b border-outline-variant/5" role="banner">
@@ -134,9 +171,12 @@ export const TopNav = memo(function TopNav() {
         </div>
       </div>
       <div className="flex items-center gap-4 relative">
-        <button onClick={handleSync} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-all relative" aria-label="Sync now">
-          <span className={`material-symbols-outlined ${syncing ? "animate-spin" : ""}`} aria-hidden="true">sync</span>
-        </button>
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-container-low" aria-label={`Sync status: ${syncLabels[syncState]}`}>
+          <span className={`material-symbols-outlined text-[18px] ${syncColors[syncState]} ${syncState === "syncing" ? "animate-spin" : ""}`} aria-hidden="true">
+            {syncState === "syncing" ? "sync" : syncState === "offline" ? "cloud_off" : syncState === "failed" ? "cloud_off" : "cloud_done"}
+          </span>
+          <span className={`text-[11px] font-semibold ${syncColors[syncState]}`}>{syncLabels[syncState]}</span>
+        </div>
         <div ref={notifRef} className="relative">
           <button onClick={() => { setNotifOpen((o) => !o); if (!notifOpen) setNotifications(getNotifications()) }} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-all relative" aria-label="Notifications" aria-expanded={notifOpen}>
             <span className="material-symbols-outlined" aria-hidden="true">notifications</span>
@@ -183,13 +223,12 @@ export const TopNav = memo(function TopNav() {
             aria-expanded={profileOpen}
           >
             <div className="text-right hidden lg:block">
-              <p className="text-label-md font-semibold text-on-surface">{displayName}</p>
-              <p className="text-[10px] text-on-surface-variant">Freelancer</p>
+              <p className="text-label-md font-semibold text-on-surface">My Workspace</p>
             </div>
             {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="w-10 h-10 rounded-full border-2 border-surface-container-high object-cover" />
+              <img src={avatarUrl} alt="" className="w-11 h-11 rounded-full border-2 border-surface-container-high object-cover" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-secondary-container border-2 border-surface-container-high flex items-center justify-center text-on-secondary-container font-bold text-sm" aria-hidden="true">
+              <div className="w-11 h-11 rounded-full bg-secondary-container border-2 border-surface-container-high flex items-center justify-center text-on-secondary-container font-bold text-sm" aria-hidden="true">
                 {initials}
               </div>
             )}
