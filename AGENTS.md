@@ -39,3 +39,5 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - ✅ Command palette (Cmd+K) + undo stack (Ctrl+Z)
 - ✅ Unit tests with Vitest (4/4 passing)
 - ✅ Stripe/Razorpay — won't do, not needed
+- ✅ Item 6 migration: existing `$5000` stripped to `5000` (migrateAmounts())
+- ✅ Item 2: Backup-to-Sheets via API route + UI in workspace settings

@@ -126,6 +126,23 @@ function migrateClients() {
   localStorage.setItem("fos_clients_migrated", "1")
 }
 
+function migrateAmounts() {
+  if (typeof window === "undefined" || localStorage.getItem("fos_amounts_migrated_v2")) return
+  const projects = getProjects()
+  let changed = false
+  for (const p of projects) {
+    if (p.amount && p.amount.startsWith("$")) { p.amount = p.amount.replace(/^\$/, ""); changed = true }
+  }
+  if (changed) save("fos_projects", projects)
+  const invoices = load<Invoice[]>("fos_invoices", [])
+  let invChanged = false
+  for (const inv of invoices) {
+    if (inv.amount && inv.amount.startsWith("$")) { inv.amount = inv.amount.replace(/^\$/, ""); invChanged = true }
+  }
+  if (invChanged) save("fos_invoices", invoices)
+  localStorage.setItem("fos_amounts_migrated_v2", "1")
+}
+
 function resolveClient(name: string, email = ""): Client {
   const clients = getClients()
   const key = name.toLowerCase().trim()
@@ -142,6 +159,7 @@ function resolveClient(name: string, email = ""): Client {
 export function getProjects(): Project[] {
   const projects = load<Project[]>("fos_projects", [])
   migrateClients()
+  migrateAmounts()
   return projects
 }
 
