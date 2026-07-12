@@ -44,11 +44,14 @@ export async function del(store: string, id: string): Promise<void> {
 
 export async function syncAll(): Promise<void> {
   if (typeof window === "undefined") return
-  const keys = ["fos_projects", "fos_leads", "fos_tasks"]
+  const keys = ["fos_projects", "fos_leads", "fos_tasks", "fos_clients", "fos_invoices", "fos_agreements"]
   const storeMap: Record<string, string> = {
     fos_projects: "projects",
     fos_leads: "leads",
     fos_tasks: "tasks",
+    fos_clients: "clients",
+    fos_invoices: "invoices",
+    fos_agreements: "agreements",
   }
   for (const key of keys) {
     const raw = localStorage.getItem(key)

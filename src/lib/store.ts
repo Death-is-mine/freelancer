@@ -2,24 +2,77 @@ export interface ActivityEntry {
   id: string; projectId: string; type: string; text: string; timestamp: string
 }
 
+export interface Client {
+  id: string; name: string; email: string; phone: string; company: string; status: string; revenue: number; notes: string; tags: string[]; createdAt: string
+}
+
 export interface Lead {
-  id: string; name: string; email: string; company: string; source: string; value: string; status: string; date: string
+  id: string; name: string; email: string; company: string; source: string; value: string; status: string; date: string; createdAt: string; reason?: string
 }
 
 export interface Project {
-  id: string; client: string; requirement: string; amount: string; amountStatus: string; dueDate: string; invoiceNum: string; agreementNum: string; leadEmail: string
+  id: string; client: string; clientId: string; requirement: string; amount: string; amountStatus: string; dueDate: string; invoiceNum: string; agreementNum: string; leadEmail: string; createdAt: string
 }
 
+export interface PaymentRecord {
+  id: string; invoiceId: string; amount: number; date: string; note: string; method: string
+}
+
+export function addPayment(invoiceId: string, amount: number, note = "", method = "") {
+  const invoices = getInvoices()
+  const inv = invoices.find((i) => i.id === invoiceId)
+  if (!inv) return null
+  const payments = getPayments(invoiceId)
+  const payment: PaymentRecord = { id: crypto.randomUUID().slice(0, 8), invoiceId, amount, date: new Date().toISOString(), note, method }
+  payments.push(payment)
+  save(`fos_payments_${invoiceId}`, payments)
+
+  const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
+  const totalDue = parseAmount(inv.amount)
+  if (totalPaid >= totalDue) {
+    inv.status = "Paid"
+    const project = getProjects().find((p) => p.id === inv.projectId)
+    if (project) { project.amountStatus = "Paid"; save("fos_projects", getProjects()) }
+  }
+  save("fos_invoices", invoices)
+  idbPut("invoices", inv)
+  return payment
+}
+
+export function getPayments(invoiceId: string): PaymentRecord[] {
+  return load(`fos_payments_${invoiceId}`, [])
+}
+
+export function getInvoiceStatus(invoiceId: string): { paid: number; due: number } {
+  const invoices = load<Invoice[]>("fos_invoices", [])
+  const inv = invoices.find((i) => i.id === invoiceId)
+  if (!inv) return { paid: 0, due: 0 }
+  const payments = getPayments(invoiceId)
+  const paid = payments.reduce((s, p) => s + p.amount, 0)
+  const total = parseAmount(inv.amount)
+  return { paid, due: Math.max(0, total - paid) }
+}
+
+export type Recurrence = "none" | "weekly" | "monthly" | "quarterly"
+
 export interface Invoice {
-  id: string; projectId: string; number: string; amount: string; status: string; issuedAt: string; dueDate: string
+  id: string; projectId: string; number: string; amount: string; status: string; issuedAt: string; dueDate: string; createdAt: string; recurrence: Recurrence; recurrenceNext: string | null
 }
 
 export interface Agreement {
-  id: string; projectId: string; number: string; status: string; issuedAt: string
+  id: string; projectId: string; number: string; status: string; issuedAt: string; createdAt: string; signed: boolean
 }
 
 export interface ProjectFile {
   id: string; name: string; driveFileId: string; size: number; mimeType: string; uploadedAt: string
+}
+
+export interface ProjectComment {
+  id: string; projectId: string; author: string; body: string; createdAt: string
+}
+
+export interface TimeEntry {
+  id: string; projectId: string; description: string; start: string; end: string | null; duration: number
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -46,9 +99,61 @@ async function idbDelete(store: string, id: string) {
   try { const { del } = await import("./offline"); await del(store, id) } catch {}
 }
 
-export function getProjects(): Project[] { return load("fos_projects", []) }
+export function getClients(): Client[] { return load("fos_clients", []) }
+
+function saveClients(clients: Client[]) { save("fos_clients", clients) }
+
+function migrateClients() {
+  if (typeof window === "undefined" || localStorage.getItem("fos_clients_migrated")) return
+  const projects = getProjects()
+  const existing = getClients()
+  const byName = new Map(existing.map((c) => [c.name.toLowerCase(), c]))
+  for (const p of projects) {
+    const key = p.client.toLowerCase()
+    if (!byName.has(key)) {
+      const c: Client = { id: crypto.randomUUID().slice(0, 8), name: p.client, email: p.leadEmail || "", phone: "", company: "", status: "Active", revenue: 0, notes: "", tags: [], createdAt: new Date().toISOString() }
+      byName.set(key, c)
+      existing.push(c)
+    }
+  }
+  for (const p of projects) {
+    const c = byName.get(p.client.toLowerCase())
+    if (c && !p.clientId) { p.clientId = c.id; c.revenue += Number(p.amount.replace(/[^0-9.]/g, "")) || 0 }
+    if (!p.createdAt) p.createdAt = new Date().toISOString()
+  }
+  saveClients(existing)
+  save("fos_projects", projects)
+  localStorage.setItem("fos_clients_migrated", "1")
+}
+
+function resolveClient(name: string, email = ""): Client {
+  const clients = getClients()
+  const key = name.toLowerCase().trim()
+  let existing = clients.find((c) => c.name.toLowerCase().trim() === key)
+  if (!existing) existing = clients.find((c) => c.email.toLowerCase() === email.toLowerCase())
+  if (existing) return existing
+  const c: Client = { id: crypto.randomUUID().slice(0, 8), name, email, phone: "", company: "", status: "Active", revenue: 0, notes: "", tags: [], createdAt: new Date().toISOString() }
+  clients.push(c)
+  saveClients(clients)
+  idbPut("clients", c)
+  return c
+}
+
+export function getProjects(): Project[] {
+  const projects = load<Project[]>("fos_projects", [])
+  migrateClients()
+  return projects
+}
 
 export function getLeads(): Lead[] { return load("fos_leads", []) }
+
+export function getInvoices(): Invoice[] {
+  // ponytail: triggers recurring invoice generation on every read; separate when real scheduling exists
+  try { processRecurringInvoices() } catch {}
+  return load("fos_invoices", [])
+}
+
+export function getAgreements(): Agreement[] { return load("fos_agreements", []) }
 
 function addActivity(projectId: string, type: string, text: string) {
   const entry: ActivityEntry = { id: crypto.randomUUID().slice(0, 8), projectId, type, text, timestamp: new Date().toISOString() }
@@ -80,12 +185,66 @@ export function removeProjectFile(projectId: string, fileId: string) {
   try { localStorage.setItem(key, JSON.stringify(files)) } catch {}
 }
 
+export function getTimeEntries(projectId: string): TimeEntry[] {
+  return load(`fos_time_${projectId}`, [])
+}
+
+export function startTimer(projectId: string, description: string) {
+  const entry: TimeEntry = { id: crypto.randomUUID().slice(0, 8), projectId, description, start: new Date().toISOString(), end: null, duration: 0 }
+  const key = `fos_time_${projectId}`
+  const all: TimeEntry[] = load<TimeEntry[]>(key, [])
+  all.unshift(entry)
+  save(key, all)
+  addActivity(projectId, "timer", `Timer started: ${description}`)
+}
+
+export function stopTimer(projectId: string, entryId: string) {
+  const key = `fos_time_${projectId}`
+  const all: TimeEntry[] = load<TimeEntry[]>(key, [])
+  const entry = all.find((e) => e.id === entryId)
+  if (!entry || entry.end) return
+  entry.end = new Date().toISOString()
+  entry.duration = new Date(entry.end).getTime() - new Date(entry.start).getTime()
+  save(key, all)
+  idbPut("time_entries", entry)
+  addActivity(projectId, "timer", `Timer stopped: ${entry.description} (${Math.round(entry.duration / 60000)}m)`)
+}
+
+export function addManualTime(projectId: string, description: string, minutes: number) {
+  if (!description.trim() || minutes <= 0) return
+  const now = new Date()
+  const start = new Date(now.getTime() - minutes * 60000)
+  const entry: TimeEntry = { id: crypto.randomUUID().slice(0, 8), projectId, description: description.trim(), start: start.toISOString(), end: now.toISOString(), duration: minutes * 60000 }
+  const key = `fos_time_${projectId}`
+  const all: TimeEntry[] = load<TimeEntry[]>(key, [])
+  all.unshift(entry)
+  save(key, all)
+  addActivity(projectId, "timer", `Time logged: ${entry.description} (${minutes}m)`)
+}
+
+export function getTotalTimeForProject(projectId: string): number {
+  return getTimeEntries(projectId).reduce((sum, e) => sum + (e.duration || 0), 0)
+}
+
+export function formatDuration(ms: number): string {
+  if (ms <= 0) return "0m"
+  const h = Math.floor(ms / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
 export function addProject(p: Project) {
+  const client = resolveClient(p.client, p.leadEmail || "")
+  p.clientId = client.id
+  p.createdAt = p.createdAt || new Date().toISOString()
   const projects = getProjects()
-  projects.unshift(p); save("fos_projects", projects); idbPut("projects", p)
+  projects.unshift(p)
+  save("fos_projects", projects)
+  idbPut("projects", p)
 }
 
 export function addLead(l: Lead) {
+  l.createdAt = l.createdAt || new Date().toISOString()
   const leads = getLeads()
   leads.unshift(l); save("fos_leads", leads); idbPut("leads", l)
 }
@@ -129,6 +288,9 @@ export function generateInvoice(projectId: string): Invoice | null {
     status: "Pending",
     issuedAt: new Date().toISOString(),
     dueDate: project.dueDate || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    createdAt: new Date().toISOString(),
+    recurrence: "none",
+    recurrenceNext: null,
   }
   project.invoiceNum = invoice.number
   save("fos_projects", projects)
@@ -138,6 +300,48 @@ export function generateInvoice(projectId: string): Invoice | null {
   idbPut("invoices", invoice)
   addActivity(projectId, "invoice", `Invoice ${invoice.number} generated`)
   return invoice
+}
+
+export function setInvoiceRecurrence(invoiceId: string, recurrence: Recurrence) {
+  const invoices = load<Invoice[]>("fos_invoices", [])
+  const inv = invoices.find((i) => i.id === invoiceId)
+  if (!inv) return
+  inv.recurrence = recurrence
+  if (recurrence === "none") { inv.recurrenceNext = null }
+  else {
+    const base = new Date(inv.dueDate || inv.issuedAt)
+    inv.recurrenceNext = addInterval(base, recurrence).toISOString()
+  }
+  save("fos_invoices", invoices)
+  idbPut("invoices", inv)
+}
+
+function addInterval(d: Date, r: Recurrence): Date {
+  const next = new Date(d)
+  if (r === "weekly") next.setDate(next.getDate() + 7)
+  else if (r === "monthly") next.setMonth(next.getMonth() + 1)
+  else if (r === "quarterly") next.setMonth(next.getMonth() + 3)
+  return next
+}
+
+export function processRecurringInvoices() {
+  // ponytail: called on page load; real cron when server-side scheduling exists
+  const invoices = load<Invoice[]>("fos_invoices", [])
+  const now = new Date()
+  for (const inv of invoices) {
+    if (inv.recurrence === "none" || !inv.recurrenceNext) continue
+    if (new Date(inv.recurrenceNext) <= now) {
+      const newInv = generateInvoice(inv.projectId)
+      if (newInv) {
+        newInv.recurrence = inv.recurrence
+        const base = addInterval(now, inv.recurrence)
+        newInv.recurrenceNext = base.toISOString()
+        const all = load<Invoice[]>("fos_invoices", [])
+        const idx = all.findIndex((i) => i.id === newInv.id)
+        if (idx !== -1) { all[idx] = newInv; save("fos_invoices", all) }
+      }
+    }
+  }
 }
 
 export function generateAgreement(projectId: string): Agreement | null {
@@ -150,6 +354,8 @@ export function generateAgreement(projectId: string): Agreement | null {
     number: `AGR-${Date.now().toString(36).toUpperCase()}`,
     status: "Draft",
     issuedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    signed: false,
   }
   project.agreementNum = agreement.number
   save("fos_projects", projects)
@@ -161,14 +367,41 @@ export function generateAgreement(projectId: string): Agreement | null {
   return agreement
 }
 
+export function signAgreement(id: string) {
+  const agreements = load<Agreement[]>("fos_agreements", [])
+  const a = agreements.find((a) => a.id === id)
+  if (!a || a.signed) return
+  a.signed = true
+  a.status = "Signed"
+  save("fos_agreements", agreements)
+  idbPut("agreements", a)
+  addActivity(a.projectId, "agreement", `Agreement ${a.number} signed`)
+}
+
+export function getComments(projectId: string): ProjectComment[] {
+  return load(`fos_comments_${projectId}`, [])
+}
+
+export function addComment(projectId: string, author: string, body: string) {
+  if (!body.trim()) return
+  const comment: ProjectComment = { id: crypto.randomUUID().slice(0, 8), projectId, author, body: body.trim(), createdAt: new Date().toISOString() }
+  const key = `fos_comments_${projectId}`
+  const all: ProjectComment[] = load<ProjectComment[]>(key, [])
+  all.push(comment)
+  if (all.length > 200) all.splice(0, all.length - 200)
+  save(key, all)
+}
+
 export function convertLeadToProject(leadId: string) {
   const leads = getLeads()
   const lead = leads.find((l) => l.id === leadId)
   if (!lead) return null
   lead.status = "Converted"
+  const client = resolveClient(lead.name, lead.email)
   const proj: Project = {
     id: crypto.randomUUID().slice(0, 8),
     client: lead.name,
+    clientId: client.id,
     requirement: lead.company ? `Work with ${lead.company}` : "New Project",
     amount: lead.value,
     amountStatus: "Pending",
@@ -176,6 +409,7 @@ export function convertLeadToProject(leadId: string) {
     invoiceNum: "—",
     agreementNum: "—",
     leadEmail: lead.email,
+    createdAt: new Date().toISOString(),
   }
   const projects = getProjects()
   projects.unshift(proj)
@@ -218,7 +452,7 @@ export async function addShare(projectId: string, expiresAt?: string): Promise<S
   }
 }
 
-export async function getShareByToken(token: string): Promise<{ project: { client: string; requirement: string; amount: string; amountStatus: string; dueDate: string; invoiceNum: string; agreementNum: string } } | null> {
+export async function getShareByToken(token: string): Promise<{ project: { id: string; client: string; requirement: string; amount: string; amountStatus: string; dueDate: string; invoiceNum: string; agreementNum: string } } | null> {
   try {
     const res = await fetch(`/api/share/${encodeURIComponent(token)}`)
     if (!res.ok) return null
@@ -254,7 +488,7 @@ export async function getShares(): Promise<Share[]> {
 }
 
 export type RuleTrigger = "lead.created" | "lead.converted" | "project.status_changed" | "invoice.generated" | "invoice.overdue"
-export type RuleAction = "notify" | "create_task" | "update_status"
+export type RuleAction = "notify" | "create_task" | "update_status" | "send_email"
 
 export interface Rule {
   id: string; name: string; trigger: RuleTrigger; action: RuleAction; config: string; enabled: boolean
@@ -300,6 +534,45 @@ export function evaluateRules(trigger: RuleTrigger, context: Record<string, stri
       const p = projects.find((x) => x.id === context.projectId)
       if (p) { p.amountStatus = rule.config; save("fos_projects", projects); addActivity(context.projectId, "update", `Status auto-updated to ${rule.config}`) }
     }
+    if (rule.action === "send_email") {
+      // ponytail: email queue via localStorage; real SMTP/API when user connects a mail provider
+      const email = { id: crypto.randomUUID().slice(0, 8), to: context.email || "", subject: rule.config.replace(/\{(\w+)\}/g, (_, k) => context[k] || ""), body: rule.config, createdAt: new Date().toISOString() }
+      const pending = load<unknown[]>("fos_pending_emails", [])
+      pending.push(email)
+      save("fos_pending_emails", pending)
+    }
+  }
+}
+
+/* ── Currency ── */
+
+export function getCurrency(): string {
+  return load("fos_currency", "USD")
+}
+
+export function setCurrency(code: string) {
+  save("fos_currency", code)
+}
+
+export function parseAmount(amount: string): number {
+  return Number(amount.replace(/[^0-9.\-]/g, "")) || 0
+}
+
+export function formatAmount(amount: string): string {
+  const code = getCurrency()
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: code, minimumFractionDigits: 0 }).format(parseAmount(amount))
+  } catch {
+    return `${code === "INR" ? "₹" : "$"}${parseAmount(amount).toLocaleString()}`
+  }
+}
+
+export function formatNumber(value: number): string {
+  const code = getCurrency()
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: code, minimumFractionDigits: 0 }).format(value)
+  } catch {
+    return `${code === "INR" ? "₹" : "$"}${value.toLocaleString()}`
   }
 }
 

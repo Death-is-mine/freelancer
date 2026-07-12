@@ -6,18 +6,22 @@ import { getShares, addShare, revokeShare, getProjects, type Share } from "@/lib
 export default function PortalPage() {
   const [shares, setShares] = useState<Share[]>([])
   const [toast, setToast] = useState("")
+  const [showPicker, setShowPicker] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("")
+
+  const projects = getProjects()
 
   async function refresh() { setShares(await getShares()) }
   useEffect(() => { refresh() }, [])
 
   async function handleCreate() {
-    const projects = getProjects()
-    if (projects.length === 0) { setToast("Create a project first"); return }
-    const share = await addShare(projects[0].id)
+    if (!selectedProjectId) { setToast("Select a project first"); return }
+    const share = await addShare(selectedProjectId)
     if (!share) return
     const url = `${window.location.origin}/share/${share.token}`
     navigator.clipboard?.writeText(url)
     setToast(`Link copied: ${url}`)
+    setShowPicker(false)
     refresh()
   }
 
@@ -47,7 +51,7 @@ export default function PortalPage() {
           <h2 className="text-headline-lg tracking-tight text-on-surface">Client Portal</h2>
           <p className="text-body-md text-on-surface-variant mt-1">Share files, invoices, and proposals with clients.</p>
         </div>
-        <button onClick={handleCreate} className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-semibold text-body-md shadow-lg shadow-primary/10 cursor-pointer">
+        <button onClick={() => { if (projects.length === 0) { setToast("Create a project first"); return }; setSelectedProjectId(projects[0].id); setShowPicker(true) }} className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-semibold text-body-md shadow-lg shadow-primary/10 cursor-pointer">
           Share New Link
         </button>
       </div>
@@ -85,9 +89,30 @@ export default function PortalPage() {
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/5">
           <h3 className="text-title-lg text-on-surface mb-4">Portal Settings</h3>
           <p className="text-label-sm text-on-surface-variant">Shares are accessible at <code className="text-primary">/share/[token]</code> without sign-in. Revoke a link to disable it immediately.</p>
-          <p className="text-label-sm text-on-surface-variant pt-4 border-t border-outline-variant/5 mt-4">Share links are created from the most recent project. To share a specific project, use the Share button on its detail page.</p>
         </div>
       </div>
+
+      {showPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowPicker(false)}>
+          <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-xl w-full max-w-md mx-4 border border-outline-variant/5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-title-lg text-on-surface mb-4">Select a project to share</h3>
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-surface-container-high text-on-surface border border-outline-variant/20 text-body-md mb-6 cursor-pointer"
+            >
+              <option value="" disabled>Choose a project…</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.client} — {p.requirement} ({p.amount})</option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowPicker(false)} className="px-5 py-2.5 rounded-xl bg-surface-container-high text-on-surface font-semibold text-body-md cursor-pointer">Cancel</button>
+              <button onClick={handleCreate} disabled={!selectedProjectId} className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-semibold text-body-md shadow-lg shadow-primary/10 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed">Create Link</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

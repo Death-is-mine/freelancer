@@ -15,6 +15,7 @@ const ACTIONS: { value: RuleAction; label: string; hint: string }[] = [
   { value: "notify", label: "Notify", hint: "Show a dashboard notification with custom message" },
   { value: "create_task", label: "Create Task", hint: "Auto-create a task with the given title" },
   { value: "update_status", label: "Update Status", hint: "Auto-update project payment status" },
+  { value: "send_email", label: "Send Email", hint: "Queue an email to the trigger context (needs mail provider)" },
 ]
 
 export default function AutomationPage() {
@@ -124,7 +125,7 @@ export default function AutomationPage() {
               <select value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value as RuleAction })} className="w-full bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20 text-on-surface" aria-label="Action">
                 {ACTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
               </select>
-              <input placeholder={form.action === "notify" ? 'Message (use {name}, {company}, {number}, {client})' : form.action === "create_task" ? 'Task title (use {name}, {company}, etc.)' : 'Status value (e.g. "Paid")'} aria-label="Rule configuration" value={form.config} onChange={(e) => setForm({ ...form, config: e.target.value })} className="w-full bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20" />
+              <input placeholder={form.action === "notify" ? 'Message (use {name}, {company}, {number}, {client})' : form.action === "create_task" ? 'Task title (use {name}, {company}, etc.)' : form.action === "send_email" ? 'Subject line (use {name}, {email}, etc.)' : 'Status value (e.g. "Paid")'} aria-label="Rule configuration" value={form.config} onChange={(e) => setForm({ ...form, config: e.target.value })} className="w-full bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20" />
               <p className="text-label-sm text-on-surface-variant/80">{ACTIONS.find((a) => a.value === form.action)?.hint}</p>
             </div>
             <div className="flex justify-end gap-3 mt-6">

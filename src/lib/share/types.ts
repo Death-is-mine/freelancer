@@ -11,6 +11,7 @@ export interface ShareData {
 
 export interface PublicShareView {
   project: {
+    id: string
     client: string
     requirement: string
     amount: string
@@ -36,6 +37,7 @@ export function toPublicView(share: ShareData): PublicShareView | null {
   const s = share.projectSnapshot as Record<string, string>
   return {
     project: {
+      id: s.id || "",
       client: s.client || "",
       requirement: s.requirement || "",
       amount: s.amount || "",

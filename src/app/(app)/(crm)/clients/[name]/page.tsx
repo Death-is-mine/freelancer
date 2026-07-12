@@ -2,18 +2,28 @@
 
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { getProjects } from "@/lib/store"
+import { getClients, getProjects, formatNumber, type Client } from "@/lib/store"
+import { useState, useEffect } from "react"
 
 export default function ClientDetailPage() {
   const { name } = useParams<{ name: string }>()
   const router = useRouter()
   const clientName = decodeURIComponent(name)
-  const clientProjects = getProjects().filter((p) => p.client.toLowerCase() === clientName.toLowerCase())
+  const [client, setClient] = useState<Client | null>(null)
+  const [clientProjects, setClientProjects] = useState<ReturnType<typeof getProjects>>([])
+  useEffect(() => {
+    const clients = getClients()
+    const found = clients.find((c) => c.name.toLowerCase() === clientName.toLowerCase())
+    setClient(found || null)
+    const allProjects = getProjects()
+    setClientProjects(found ? allProjects.filter((p) => (p.clientId && p.clientId === found.id) || p.client.toLowerCase() === clientName.toLowerCase()) : [])
+  }, [clientName])
+
   const totalAmount = clientProjects.reduce((s, p) => s + (Number(p.amount.replace(/[^0-9.]/g, "")) || 0), 0)
   const paidAmount = clientProjects.filter((p) => p.amountStatus === "Paid").reduce((s, p) => s + (Number(p.amount.replace(/[^0-9.]/g, "")) || 0), 0)
   const dueAmount = totalAmount - paidAmount
 
-  if (clientProjects.length === 0) {
+  if (!client && clientProjects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center">
         <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-4" aria-hidden="true">group_off</span>
@@ -42,25 +52,26 @@ export default function ClientDetailPage() {
         <div>
           <h2 className="text-headline-lg tracking-tight text-on-surface">{clientName}</h2>
           <p className="text-body-md text-on-surface-variant mt-1">{clientProjects.length} project{clientProjects.length !== 1 ? "s" : ""}</p>
+          {client?.email && <p className="text-label-sm text-on-surface-variant">{client.email}</p>}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/5">
           <p className="text-label-md text-on-surface-variant">Total Billed</p>
-          <h3 className="text-headline-md font-bold mt-1">${totalAmount.toLocaleString()}</h3>
+          <h3 className="text-headline-md font-bold mt-1">{formatNumber(totalAmount)}</h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/5">
           <p className="text-label-md text-on-surface-variant">Paid</p>
-          <h3 className="text-headline-md font-bold mt-1 text-secondary">${paidAmount.toLocaleString()}</h3>
+          <h3 className="text-headline-md font-bold mt-1 text-secondary">{formatNumber(paidAmount)}</h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/5">
           <p className="text-label-md text-on-surface-variant">Due</p>
-          <h3 className="text-headline-md font-bold mt-1 text-error">${dueAmount.toLocaleString()}</h3>
+          <h3 className="text-headline-md font-bold mt-1 text-error">{formatNumber(dueAmount)}</h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/5">
           <p className="text-label-md text-on-surface-variant">Status</p>
-          <span className="inline-block mt-2 px-3 py-1 rounded-full text-[11px] font-bold bg-secondary-container text-on-secondary-container">Active</span>
+          <span className="inline-block mt-2 px-3 py-1 rounded-full text-[11px] font-bold bg-secondary-container text-on-secondary-container">{client?.status || "Active"}</span>
         </div>
       </div>
 

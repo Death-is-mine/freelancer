@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { getProjects as store, addProject as storeAdd, updateProject as storeUpdate, type Project } from "@/lib/store"
+import { getProjects as store, addProject as storeAdd, updateProject as storeUpdate, formatAmount, type Project } from "@/lib/store"
 
 export default function ProjectsPage() {
   const searchParams = useSearchParams()
@@ -25,7 +25,7 @@ export default function ProjectsPage() {
 
   function addProject() {
     if (!form.client.trim() || !form.requirement.trim()) return
-    const p: Project = { id: crypto.randomUUID().slice(0, 8), client: form.client, requirement: form.requirement, amount: `$${form.amount || "0"}`, amountStatus: "Pending", dueDate: form.dueDate || "—", invoiceNum: "—", agreementNum: "—", leadEmail: form.leadEmail }
+    const p: Project = { id: crypto.randomUUID().slice(0, 8), client: form.client, clientId: "", requirement: form.requirement, amount: `$${form.amount || "0"}`, amountStatus: "Pending", dueDate: form.dueDate || "—", invoiceNum: "—", agreementNum: "—", leadEmail: form.leadEmail, createdAt: new Date().toISOString() }
     storeAdd(p)
     setList([...store()])
     setShowForm(false)
@@ -84,7 +84,7 @@ export default function ProjectsPage() {
                   <Link href={`/projects/${p.id}`} className="text-body-md font-semibold text-primary hover:underline">{p.client}</Link>
                 </td>
                 <td className="px-6 py-4 text-body-md text-on-surface">{p.requirement}</td>
-                <td className="px-6 py-4 text-body-md font-semibold text-on-surface">{p.amount}</td>
+                <td className="px-6 py-4 text-body-md font-semibold text-on-surface">{formatAmount(p.amount)}</td>
                 <td className="px-6 py-4">
                   <select value={p.amountStatus} onChange={(e) => { storeUpdate(p.id, { amountStatus: e.target.value }); setList([...store()]) }} aria-label={`Payment status for ${p.client}`} className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border-0 outline-none ${p.amountStatus === "Paid" ? "bg-secondary-container text-on-secondary-container" : p.amountStatus === "Overdue" ? "bg-error-container text-on-error-container" : "bg-surface-container-high text-on-surface-variant"}`}>
                     <option value="Pending">Pending</option>

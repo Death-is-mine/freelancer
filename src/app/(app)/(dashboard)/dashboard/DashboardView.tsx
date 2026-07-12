@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { getProjects, getLeads, evaluateRules, type Project, type Lead } from "@/lib/store"
+import { getProjects, getLeads, evaluateRules, formatNumber, type Project, type Lead } from "@/lib/store"
 import { useEffect, useState, useRef } from "react"
 
 function getGreeting(h: number) {
@@ -123,7 +123,7 @@ export function DashboardView() {
           <span className="material-symbols-outlined text-2xl" aria-hidden="true">warning</span>
           <div className="flex-1">
             <p className="font-semibold text-label-md">{overdueCount} {overdueCount === 1 ? "invoice is" : "invoices are"} overdue</p>
-            <p className="text-body-md text-on-error-container/80">Outstanding balance: ${totalOutstanding.toLocaleString()}</p>
+            <p className="text-body-md text-on-error-container/80">Outstanding balance: {formatNumber(totalOutstanding)}</p>
           </div>
           <button onClick={() => router.push("/payments")} className="px-4 py-2 rounded-lg bg-error text-on-error text-label-md font-bold hover:bg-error/90 transition-colors">
             View Payments
@@ -159,7 +159,7 @@ export function DashboardView() {
             <span className="material-symbols-outlined text-error" aria-hidden="true">payments</span>
             <span className="text-label-md text-on-surface-variant uppercase tracking-wider">Outstanding</span>
           </div>
-          <p className="text-headline-md font-bold text-on-surface mt-2">${totalOutstanding.toLocaleString()}</p>
+          <p className="text-headline-md font-bold text-on-surface mt-2">{formatNumber(totalOutstanding)}</p>
           <p className="text-body-md text-on-surface-variant mt-1">{overdueCount > 0 ? `${overdueCount} overdue` : "All paid"}</p>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/5 shadow-sm">

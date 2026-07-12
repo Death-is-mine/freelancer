@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { getProjects, updateProject, deleteProject, getProjectActivity, getProjectFiles, addProjectFile, removeProjectFile, generateInvoice, generateAgreement, addShare, getProjectShares, evaluateRules, type ActivityEntry, type ProjectFile } from "@/lib/store"
+import { getProjects, updateProject, deleteProject, getProjectActivity, getProjectFiles, addProjectFile, removeProjectFile, generateInvoice, generateAgreement, signAgreement, addShare, getProjectShares, evaluateRules, formatNumber, getInvoices, addPayment, getInvoiceStatus, getAgreements, getComments, addComment, getTimeEntries, startTimer, stopTimer, addManualTime, getTotalTimeForProject, formatDuration, setInvoiceRecurrence, type ActivityEntry, type ProjectFile, type ProjectComment, type TimeEntry, type Recurrence } from "@/lib/store"
 
 interface ProjectTask { id: string; title?: string; text?: string; done: boolean; projectId?: string }
 
@@ -251,11 +251,11 @@ export default function ProjectDetailPage() {
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/5">
           <p className="text-label-md text-on-surface-variant">Paid</p>
-          <h3 className="text-headline-md font-bold mt-1 text-secondary">${paid.toLocaleString()}</h3>
+          <h3 className="text-headline-md font-bold mt-1 text-secondary">{formatNumber(paid)}</h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/5">
           <p className="text-label-md text-on-surface-variant">Outstanding</p>
-          <h3 className="text-headline-md font-bold mt-1 text-error">${due.toLocaleString()}</h3>
+          <h3 className="text-headline-md font-bold mt-1 text-error">{formatNumber(due)}</h3>
         </div>
         <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/5">
           <p className="text-label-md text-on-surface-variant">Status</p>
@@ -321,14 +321,26 @@ export default function ProjectDetailPage() {
             Actions
           </h3>
           <div className="space-y-2">
-            <button onClick={() => { generateInvoice(project.id); evaluateRules("invoice.generated", { projectId: project.id, client: project.client, number: project.invoiceNum }); setToast({ show: true, msg: `Invoice ${project.invoiceNum === "—" ? "generated" : "regenerated"}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
+            <button onClick={() => { const inv = generateInvoice(project.id); if (inv) evaluateRules("invoice.generated", { projectId: project.id, client: project.client, number: project.invoiceNum }); setToast({ show: true, msg: `Invoice ${project.invoiceNum === "—" ? "generated" : "regenerated"}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">receipt</span>
               <div><p className="text-body-md font-semibold text-on-surface">Generate Invoice</p><p className="text-label-sm text-on-surface-variant/80">Create an invoice for this project</p></div>
             </button>
+            {project.invoiceNum !== "—" && (
+              <RecurrencePicker projectId={project.id} setToast={setToast} />
+            )}
+            {project.invoiceNum !== "—" && (
+              <RecordPaymentButton projectId={project.id} setToast={setToast} />
+            )}
             <button onClick={() => { generateAgreement(project.id); setToast({ show: true, msg: `Agreement ${project.agreementNum === "—" ? "generated" : "regenerated"}` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">contract</span>
               <div><p className="text-body-md font-semibold text-on-surface">Generate Agreement</p><p className="text-label-sm text-on-surface-variant/80">Create a service agreement</p></div>
             </button>
+            {(() => { const ag = getAgreements().find((a) => a.projectId === project.id); if (!ag || ag.signed) return null; return (
+              <button onClick={() => { signAgreement(ag.id); setToast({ show: true, msg: `Agreement ${ag.number} signed` }); setTimeout(() => setToast({ show: false, msg: "" }), 2000) }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
+                <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">draw</span>
+                <div><p className="text-body-md font-semibold text-on-surface">Sign Agreement</p><p className="text-label-sm text-on-surface-variant/80">E-sign this service agreement</p></div>
+              </button>
+            ) })()}
             <button onClick={async () => { const share = await addShare(project.id); if (share) { const url = `${window.location.origin}/share/${share.token}`; navigator.clipboard?.writeText(url); setToast({ show: true, msg: `Share link copied: ${url}` }); setTimeout(() => setToast({ show: false, msg: "" }), 3000) } }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
               <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">share</span>
               <div><p className="text-body-md font-semibold text-on-surface">Share Project</p><p className="text-label-sm text-on-surface-variant/80">Create a public link to share with client</p></div>
@@ -353,8 +365,8 @@ export default function ProjectDetailPage() {
               <div><p className="text-body-md font-semibold text-on-surface">Project Created</p><p className="text-label-sm text-on-surface-variant/80">{new Date().toLocaleDateString()}</p></div>
             </div>
             <div className="flex gap-3">
-              <div className="flex flex-col items-center"><div className={`w-2.5 h-2.5 rounded-full ${project.agreementNum !== "—" ? "bg-secondary" : "bg-outline-variant/30"}`}></div><div className="w-px flex-1 bg-outline-variant/20"></div></div>
-              <div><p className="text-body-md font-semibold text-on-surface">Agreement {project.agreementNum !== "—" ? "Signed" : "Pending"}</p><p className="text-label-sm text-on-surface-variant/80">{project.agreementNum !== "—" ? project.agreementNum : "Not yet generated"}</p></div>
+              {(() => { const ag = getAgreements().find((a) => a.projectId === project.id); const done = ag?.signed || false; return (<><div className="flex flex-col items-center"><div className={`w-2.5 h-2.5 rounded-full ${done ? "bg-secondary" : project.agreementNum !== "—" ? "bg-tertiary" : "bg-outline-variant/30"}`}></div><div className="w-px flex-1 bg-outline-variant/20"></div></div>
+              <div><p className="text-body-md font-semibold text-on-surface">Agreement {done ? "Signed" : project.agreementNum !== "—" ? "Awaiting Signature" : "Pending"}</p><p className="text-label-sm text-on-surface-variant/80">{project.agreementNum !== "—" ? project.agreementNum : "Not yet generated"}</p></div></>) })()}
             </div>
             <div className="flex gap-3">
               <div className="flex flex-col items-center"><div className={`w-2.5 h-2.5 rounded-full ${project.invoiceNum !== "—" ? "bg-secondary" : "bg-outline-variant/30"}`}></div><div className="w-px flex-1 bg-outline-variant/20"></div></div>
@@ -380,6 +392,9 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
+      <CommentSection projectId={project.id} />
+
+      <TimerSection projectId={project.id} />
       {editing && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
           <div className="fixed inset-0 bg-black/40" onClick={() => setEditing(false)} />
@@ -407,5 +422,144 @@ export default function ProjectDetailPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function RecordPaymentButton({ projectId, setToast }: { projectId: string; setToast: (t: { show: boolean; msg: string }) => void }) {
+  const [show, setShow] = useState(false)
+  const [amount, setAmount] = useState("")
+  const [note, setNote] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
+  const invoices = getInvoices().filter((i) => i.projectId === projectId)
+  if (invoices.length === 0) return null
+  const inv = invoices[invoices.length - 1]
+  const { paid, due } = getInvoiceStatus(inv.id)
+
+  return (
+    <>
+      <button onClick={() => setShow(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
+        <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">payments</span>
+        <div><p className="text-body-md font-semibold text-on-surface">Record Payment</p><p className="text-label-sm text-on-surface-variant/80">{due > 0 ? `${formatNumber(due)} remaining` : "Fully paid"}</p></div>
+      </button>
+      {show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setShow(false)}>
+          <div className="fixed inset-0 bg-black/40" />
+          <div className="relative bg-surface-container-lowest w-full max-w-sm rounded-2xl border border-outline-variant/10 shadow-2xl p-6 z-10" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-title-lg text-on-surface mb-4">Record Payment</h3>
+            <p className="text-label-sm text-on-surface-variant mb-4">{inv.number} · Due: {formatNumber(due)}</p>
+            <input aria-label="Payment amount" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20 mb-3" />
+            <input aria-label="Payment note" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} className="w-full bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20 mb-6" />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShow(false)} className="px-4 py-2 rounded-xl border border-outline-variant/30 text-on-surface text-label-md">Cancel</button>
+              <button onClick={() => {
+                const val = Number(amount.replace(/[^0-9.]/g, ""))
+                if (!val || val <= 0) return
+                addPayment(inv.id, val, note)
+                setShow(false)
+                setToast({ show: true, msg: `Payment of ${formatNumber(val)} recorded` })
+                setTimeout(() => setToast({ show: false, msg: "" }), 3000)
+                setRefreshKey((k) => k + 1)
+              }} className="px-5 py-2 rounded-xl bg-primary text-on-primary text-label-md font-semibold">Record</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function CommentSection({ projectId }: { projectId: string }) {
+  const [comments, setComments] = useState<ProjectComment[]>([])
+  const [body, setBody] = useState("")
+  useEffect(() => { setComments(getComments(projectId)) }, [projectId])
+  return (
+    <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/5 mb-8">
+      <h3 className="text-label-md text-on-surface-variant uppercase tracking-wider mb-4 flex items-center gap-2">
+        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">chat</span>
+        Comments ({comments.length})
+      </h3>
+      <div className="flex gap-2 mb-4">
+        <input aria-label="Add a comment" placeholder="Write a comment…" value={body} onChange={(e) => setBody(e.target.value)} className="flex-1 bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20" />
+        <button onClick={() => { addComment(projectId, "You", body); setBody(""); setComments(getComments(projectId)) }} disabled={!body.trim()} className="px-4 py-2 rounded-lg bg-primary text-on-primary text-label-md font-semibold disabled:opacity-40">Post</button>
+      </div>
+      {comments.length === 0 && <p className="text-body-md text-on-surface-variant/60">No comments yet.</p>}
+      <div className="space-y-3 max-h-80 overflow-y-auto">
+        {comments.map((c) => (
+          <div key={c.id} className="flex gap-3 p-3 rounded-xl bg-surface-container-high/40">
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-label-sm font-semibold text-primary shrink-0">{c.author[0]}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1"><span className="text-label-sm font-semibold text-on-surface">{c.author}</span><span className="text-label-xs text-on-surface-variant/60">{new Date(c.createdAt).toLocaleDateString()}</span></div>
+              <p className="text-body-md text-on-surface-variant whitespace-pre-wrap">{c.body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TimerSection({ projectId }: { projectId: string }) {
+  const [entries, setEntries] = useState<TimeEntry[]>([])
+  const [runningId, setRunningId] = useState<string | null>(null)
+  const [desc, setDesc] = useState("")
+  const [manualDesc, setManualDesc] = useState("")
+  const [manualMin, setManualMin] = useState("")
+  const [totalMs, setTotalMs] = useState(0)
+  const refresh = () => { setEntries(getTimeEntries(projectId)); setRunningId(getTimeEntries(projectId).find((e) => !e.end)?.id || null); setTotalMs(getTotalTimeForProject(projectId)) }
+  useEffect(refresh, [projectId])
+  useEffect(() => { if (runningId) { const iv = setInterval(refresh, 10000); return () => clearInterval(iv) } }, [runningId])
+  return (
+    <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/5 mb-8">
+      <h3 className="text-label-md text-on-surface-variant uppercase tracking-wider mb-4 flex items-center gap-2">
+        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">timer</span>
+        Time Tracking · Total: {formatDuration(totalMs)}
+      </h3>
+      {!runningId ? (
+        <div className="flex gap-2 mb-4">
+          <input aria-label="Timer description" placeholder="What are you working on?" value={desc} onChange={(e) => setDesc(e.target.value)} className="flex-1 bg-surface-container-high border-none rounded-lg px-4 py-2.5 text-body-md outline-none focus:ring-2 focus:ring-primary/20" />
+          <button onClick={() => { if (desc.trim()) { startTimer(projectId, desc.trim()); setDesc(""); refresh() } }} disabled={!desc.trim()} className="px-4 py-2 rounded-lg bg-primary text-on-primary text-label-md font-semibold disabled:opacity-40 inline-flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px]" aria-hidden="true">play_arrow</span> Start</button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 mb-4 p-3 rounded-xl bg-surface-container-high">
+          <span className="w-2 h-2 rounded-full bg-error animate-pulse" />
+          <span className="flex-1 text-body-md font-medium text-on-surface">{entries.find((e) => e.id === runningId)?.description}</span>
+          <button onClick={() => { stopTimer(projectId, runningId!); refresh() }} className="px-3 py-1.5 rounded-lg bg-error/10 text-error text-label-md font-semibold inline-flex items-center gap-1"><span className="material-symbols-outlined text-[18px]" aria-hidden="true">stop</span> Stop</button>
+        </div>
+      )}
+      <details className="group">
+        <summary className="text-label-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors">Log manual time</summary>
+        <div className="flex gap-2 mt-2">
+          <input aria-label="Description" placeholder="Description" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} className="flex-1 bg-surface-container-high border-none rounded-lg px-4 py-2 text-body-sm outline-none focus:ring-2 focus:ring-primary/20" />
+          <input aria-label="Minutes" placeholder="Minutes" type="number" min="1" value={manualMin} onChange={(e) => setManualMin(e.target.value)} className="w-24 bg-surface-container-high border-none rounded-lg px-4 py-2 text-body-sm outline-none focus:ring-2 focus:ring-primary/20" />
+          <button onClick={() => { addManualTime(projectId, manualDesc, Number(manualMin)); setManualDesc(""); setManualMin(""); refresh() }} disabled={!manualDesc.trim() || !manualMin || Number(manualMin) <= 0} className="px-3 py-2 rounded-lg bg-primary text-on-primary text-label-sm font-semibold disabled:opacity-40">Log</button>
+        </div>
+      </details>
+      {entries.filter((e) => e.end).slice(0, 10).map((e) => (
+        <div key={e.id} className="flex items-center gap-3 py-2 border-b border-outline-variant/5 last:border-0 text-body-sm">
+          <span className="flex-1 text-on-surface">{e.description}</span>
+          <span className="text-label-sm text-on-surface-variant">{formatDuration(e.duration)}</span>
+          <span className="text-label-xs text-on-surface-variant/60">{new Date(e.start).toLocaleDateString()}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function RecurrencePicker({ projectId, setToast }: { projectId: string; setToast: (t: { show: boolean; msg: string }) => void }) {
+  const invoices = getInvoices().filter((i) => i.projectId === projectId)
+  if (invoices.length === 0) return null
+  const latest = invoices[invoices.length - 1]
+  const [rec, setRec] = useState<Recurrence>(latest.recurrence || "none")
+  return (
+    <button onClick={() => {
+      const next: Recurrence = rec === "none" ? "weekly" : rec === "weekly" ? "monthly" : rec === "monthly" ? "quarterly" : "none"
+      setInvoiceRecurrence(latest.id, next)
+      setRec(next)
+      setToast({ show: true, msg: next === "none" ? "Recurrence disabled" : `Invoice set to ${next}` })
+      setTimeout(() => setToast({ show: false, msg: "" }), 2000)
+    }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors text-left">
+      <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">repeat</span>
+      <div><p className="text-body-md font-semibold text-on-surface">{rec === "none" ? "Make Recurring" : `Recurring: ${rec}`}</p><p className="text-label-sm text-on-surface-variant/80">{rec === "none" ? "Auto-generate invoices weekly/monthly/quarterly" : "Tap to change recurrence"}</p></div>
+    </button>
   )
 }

@@ -45,7 +45,7 @@ export default function LeadsPage() {
         const vals = line.split(",").map((v) => v.trim())
         const row: Record<string, string> = {}
         headers.forEach((h, i) => { row[h] = vals[i] || "" })
-        return { id: crypto.randomUUID().slice(0, 8), name: row.name || row["first name"] || "", email: row.email || "", company: row.company || "", source: row.source || "CSV Import", value: row.value || "$0", status: "New", date: new Date().toLocaleDateString() }
+        return { id: crypto.randomUUID().slice(0, 8), name: row.name || row["first name"] || "", email: row.email || "", company: row.company || "", source: row.source || "CSV Import", value: row.value || "$0", status: "New", date: new Date().toLocaleDateString(), createdAt: new Date().toISOString() }
       }).filter((l) => l.name)
       const skipped = parsed.filter((l) => findDup(l.email, l.company))
       const ok = parsed.filter((l) => !findDup(l.email, l.company))
@@ -114,21 +114,26 @@ export default function LeadsPage() {
                 <td className="px-6 py-4 text-body-md text-on-surface">{lead.company}</td>
                 <td className="px-6 py-4 text-body-md text-on-surface-variant">{lead.source}</td>
                 <td className="px-6 py-4 text-body-md text-on-surface">{lead.value}</td>
-                <td className="px-6 py-4 flex items-center gap-2">
+                <td className="px-6 py-4 flex items-center gap-2 min-w-[200px]">
                   <select value={lead.status} onChange={(e) => { storeUpdate(lead.id, { status: e.target.value }); setLeads([...store()]) }} aria-label="Lead status" className="bg-transparent border border-outline-variant/20 rounded-lg px-2 py-1 text-label-sm outline-none">
                     <option value="New">New</option>
                     <option value="Contacted">Contacted</option>
                     <option value="Qualified">Qualified</option>
                     <option value="Converted">Converted</option>
+                    <option value="Lost">Lost</option>
+                    <option value="Disqualified">Disqualified</option>
                   </select>
-                  {lead.status !== "Converted" && (
-                    <button
-                      onClick={() => handleConvert(lead.id)}
-                      className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-all hover:bg-primary/20"
-                      aria-label={`Convert ${lead.name} to project`}
-                    >
-                      Convert
-                    </button>
+                  {(lead.status === "Lost" || lead.status === "Disqualified") && (
+                    <input
+                      value={lead.reason || ""}
+                      onChange={(e) => { storeUpdate(lead.id, { reason: e.target.value }); setLeads([...store()]) }}
+                      placeholder="Reason…"
+                      className="w-24 bg-surface-container-high border-none rounded px-2 py-1 text-label-sm outline-none"
+                      aria-label="Loss reason"
+                    />
+                  )}
+                  {lead.status !== "Converted" && lead.status !== "Lost" && lead.status !== "Disqualified" && (
+                    <button onClick={() => handleConvert(lead.id)} className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-all hover:bg-primary/20" aria-label={`Convert ${lead.name} to project`}>Convert</button>
                   )}
                   <button onClick={() => { storeDelete(lead.id); setLeads([...store()]) }} className="p-1 rounded hover:bg-error/10 text-on-surface-variant opacity-0 group-hover:opacity-100 transition-all" aria-label={`Delete ${lead.name}`}>
                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
@@ -161,7 +166,7 @@ export default function LeadsPage() {
                 setTimeout(() => setToast({ show: false, msg: "" }), 3000)
                 return
               }
-              storeAdd({ id: crypto.randomUUID().slice(0, 8), ...form, status: "New", date: new Date().toLocaleDateString() })
+              storeAdd({ id: crypto.randomUUID().slice(0, 8), ...form, status: "New", date: new Date().toLocaleDateString(), createdAt: new Date().toISOString() })
               evaluateRules("lead.created", { name: form.name, company: form.company, email: form.email })
               setLeads([...store()])
               setShowForm(false)

@@ -9,7 +9,8 @@ let repo: ShareRepository | null = null
 
 export function getShareRepo(): ShareRepository {
   if (repo) return repo
-  const backend = process.env.SHARE_BACKEND || "json"
+  // ponytail: sheets is durable (real storage), json is ephemeral (local dev only)
+  const backend = process.env.SHARE_BACKEND || "sheets"
   if (backend === "sheets") {
     repo = createSheetsRepo(() => getServerAccessToken())
   } else {

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import type { z } from "zod"
 
+// ponytail: in-memory Map — resets on redeploy, not shared across instances.
+// Switch to IndexedDB or a shared store if multi-server deployment is needed.
 const requests = new Map<string, { count: number; reset: number }>()
 
 export function resetRateLimit() { requests.clear() }
