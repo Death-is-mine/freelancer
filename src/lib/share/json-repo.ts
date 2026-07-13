@@ -1,19 +1,23 @@
-import { promises as fs } from "fs"
-import { join } from "path"
-import { type ShareData, type ShareRepository, generateId, generateToken } from "./types"
+import { promises as fs } from 'fs'
+import { join } from 'path'
+import { type ShareData, type ShareRepository, generateId, generateToken } from './types'
 
 // ponytail: JSON file store — single-server only. Migrate to Sheets/DB for multi-server.
 
 export function createJsonRepo(sharesFile?: string): ShareRepository {
-  const filePath = sharesFile || join(process.cwd(), ".data", "shares.json")
+  const filePath = sharesFile || join(process.cwd(), '.data', 'shares.json')
 
   async function ensureDir() {
-    try { await fs.mkdir(join(filePath, ".."), { recursive: true }) } catch { /* ok */ }
+    try {
+      await fs.mkdir(join(filePath, '..'), { recursive: true })
+    } catch {
+      /* ok */
+    }
   }
 
   async function readAll(): Promise<ShareData[]> {
     try {
-      const raw = await fs.readFile(filePath, "utf-8")
+      const raw = await fs.readFile(filePath, 'utf-8')
       return JSON.parse(raw)
     } catch {
       return []
@@ -22,7 +26,7 @@ export function createJsonRepo(sharesFile?: string): ShareRepository {
 
   async function writeAll(shares: ShareData[]) {
     await ensureDir()
-    await fs.writeFile(filePath, JSON.stringify(shares, null, 2), "utf-8")
+    await fs.writeFile(filePath, JSON.stringify(shares, null, 2), 'utf-8')
   }
 
   return {

@@ -21,6 +21,7 @@ export default defineConfig({
     video: "on-first-retry",
     trace: "on-first-retry",
   },
+  snapshotDir: "./e2e/snapshots",
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "firefox", use: { browserName: "firefox" } },

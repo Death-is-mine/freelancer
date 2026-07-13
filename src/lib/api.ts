@@ -5,7 +5,7 @@ export class ApiError extends Error {
     public retryable = false,
   ) {
     super(message)
-    this.name = "ApiError"
+    this.name = 'ApiError'
   }
 }
 
@@ -26,7 +26,7 @@ export async function fetchWithRetry(
       })
       clearTimeout(timeoutId)
       if (!res.ok) {
-        const body = await res.text().catch(() => "")
+        const body = await res.text().catch(() => '')
         throw new ApiError(
           `${res.status} ${res.statusText}: ${body.slice(0, 200)}`,
           res.status,
@@ -46,5 +46,5 @@ export async function fetchWithRetry(
     }
   }
 
-  throw new Error("Unreachable")
+  throw new Error('Unreachable')
 }

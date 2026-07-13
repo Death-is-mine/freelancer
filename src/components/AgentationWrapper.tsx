@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import { Agentation } from "agentation"
+import { Agentation } from 'agentation'
 
 export function AgentationWrapper() {
   return <Agentation />

@@ -1,31 +1,42 @@
-import { type ShareData, type ShareRepository, generateId, generateToken } from "./types"
+import { type ShareData, type ShareRepository, generateId, generateToken } from './types'
 
-const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets"
-const SHEET_NAME = "shares"
+const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
+const SHEET_NAME = 'shares'
 const RANGE = `${SHEET_NAME}!A:H`
-const HEADERS = ["id", "projectId", "token", "enabled", "createdAt", "expiresAt", "ownerId", "projectSnapshot"]
+const HEADERS = [
+  'id',
+  'projectId',
+  'token',
+  'enabled',
+  'createdAt',
+  'expiresAt',
+  'ownerId',
+  'projectSnapshot',
+]
 
 async function ensureSheet(accessToken: string) {
   const sid = process.env.SHEETS_ID
-  if (!sid) throw new Error("SHEETS_ID not configured")
+  if (!sid) throw new Error('SHEETS_ID not configured')
   const res = await fetch(`${SHEETS_BASE}/${sid}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) throw new Error(`Failed to get spreadsheet: ${res.status}`)
   const data = await res.json()
-  const hasShares = data.sheets?.some((s: { properties: { title: string } }) => s.properties.title === SHEET_NAME)
+  const hasShares = data.sheets?.some(
+    (s: { properties: { title: string } }) => s.properties.title === SHEET_NAME,
+  )
   if (hasShares) return
   await fetch(`${SHEETS_BASE}/${sid}:batchUpdate`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       requests: [{ addSheet: { properties: { title: SHEET_NAME } } }],
     }),
   })
   await fetch(`${SHEETS_BASE}/${sid}/values/${RANGE}?valueInputOption=USER_ENTERED`, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ range: RANGE, values: [HEADERS], majorDimension: "ROWS" }),
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ range: RANGE, values: [HEADERS], majorDimension: 'ROWS' }),
   })
 }
 
@@ -36,7 +47,7 @@ function rowToShare(row: string[]): ShareData | null {
       id: row[0],
       projectId: row[1],
       token: row[2],
-      enabled: row[3] === "TRUE",
+      enabled: row[3] === 'TRUE',
       createdAt: row[4],
       expiresAt: row[5] || null,
       ownerId: row[6],
@@ -52,9 +63,9 @@ function shareToRow(s: ShareData): string[] {
     s.id,
     s.projectId,
     s.token,
-    s.enabled ? "TRUE" : "FALSE",
+    s.enabled ? 'TRUE' : 'FALSE',
     s.createdAt,
-    s.expiresAt || "",
+    s.expiresAt || '',
     s.ownerId,
     JSON.stringify(s.projectSnapshot),
   ]
@@ -65,7 +76,7 @@ async function fetchSheet(accessToken: string): Promise<ShareData[]> {
   if (!sid) return []
   const res = await fetch(`${SHEETS_BASE}/${sid}/values/${RANGE}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
-    cache: "no-store",
+    cache: 'no-store',
   })
   if (!res.ok) return []
   const data = await res.json()
@@ -78,16 +89,16 @@ async function overwriteSheet(accessToken: string, shares: ShareData[]) {
   if (!sid) return
   const values = [HEADERS, ...shares.map(shareToRow)]
   await fetch(`${SHEETS_BASE}/${sid}/values/${RANGE}?valueInputOption=USER_ENTERED`, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ range: RANGE, values, majorDimension: "ROWS" }),
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ range: RANGE, values, majorDimension: 'ROWS' }),
   })
 }
 
 export function createSheetsRepo(getToken: () => Promise<string | null>): ShareRepository {
   async function withToken<T>(fn: (token: string) => Promise<T>): Promise<T> {
     const token = await getToken()
-    if (!token) throw new Error("Not authenticated")
+    if (!token) throw new Error('Not authenticated')
     await ensureSheet(token)
     return fn(token)
   }
@@ -104,9 +115,9 @@ export function createSheetsRepo(getToken: () => Promise<string | null>): ShareR
         await fetch(
           `${SHEETS_BASE}/${process.env.SHEETS_ID}/values/${RANGE}:append?valueInputOption=USER_ENTERED`,
           {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ values: [shareToRow(share)], majorDimension: "ROWS" }),
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [shareToRow(share)], majorDimension: 'ROWS' }),
           },
         )
         return share

@@ -1,5 +1,5 @@
-import NextAuth from "next-auth"
-import Google from "next-auth/providers/google"
+import NextAuth from 'next-auth'
+import Google from 'next-auth/providers/google'
 
 export const { handlers, auth } = NextAuth({
   providers: [
@@ -7,9 +7,9 @@ export const { handlers, auth } = NextAuth({
       authorization: {
         params: {
           scope:
-            "openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.readonly",
-          access_type: "offline",
-          prompt: "consent",
+            'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.readonly',
+          access_type: 'offline',
+          prompt: 'consent',
         },
       },
     }),
@@ -28,14 +28,14 @@ export const { handlers, auth } = NextAuth({
         token.locale = (profile as Record<string, string | undefined>).locale
       }
       if (token.expiresAt && Date.now() / 1000 > (token.expiresAt as number) - 300) {
-        const res = await fetch("https://oauth2.googleapis.com/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        const res = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({
             client_id: process.env.AUTH_GOOGLE_ID!,
             client_secret: process.env.AUTH_GOOGLE_SECRET!,
             refresh_token: token.refreshToken as string,
-            grant_type: "refresh_token",
+            grant_type: 'refresh_token',
           }),
         })
         const data = await res.json()
@@ -47,27 +47,27 @@ export const { handlers, auth } = NextAuth({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async session({ session, token }: { session: any; token: any }) {
       if (session.user) {
-        session.user.id = token.sub!
-        session.user.name = (token.name as string) || session.user.name
-        session.user.email = (token.email as string) || session.user.email
-        session.user.image = (token.picture as string) || session.user.image
-        session.user.locale = token.locale as string
+        session.user.id = token.sub
+        session.user.name = token.name || session.user.name
+        session.user.email = token.email || session.user.email
+        session.user.image = token.picture || session.user.image
+        session.user.locale = token.locale
       }
       return session
     },
   },
   cookies: {
     sessionToken: {
-      name: "next-auth.session-token",
+      name: 'next-auth.session-token',
       options: {
         httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
       },
     },
   },
   pages: {
-    signIn: "/login",
+    signIn: '/login',
   },
 })
